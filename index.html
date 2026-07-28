@@ -388,9 +388,16 @@ tr:hover td{background:var(--yellow-light)}
     <button class="role-btn" onclick="selectRole('cliente',this)">📊 Cliente</button>
   </div>
   <div id="lock-pin-section">
-    <div class="lock-pin-label">PIN de acesso</div>
+    <div class="lock-pin-label" id="lock-pin-label">PIN de acesso</div>
+    <!-- Promotora: select name first -->
+    <div id="lock-promo-select" style="display:none;margin-bottom:10px">
+      <select id="lock-promo-nome" style="padding:10px 14px;border-radius:8px;border:2px solid rgba(0,0,0,0.2);background:rgba(255,255,255,0.7);color:var(--ink);font-size:13px;font-family:Inter,sans-serif;min-width:220px">
+        <option value="">Selecciona o teu nome...</option>
+      </select>
+    </div>
     <div id="lock-pin-row">
       <input type="password" id="lock-pin" placeholder="••••" maxlength="6"
+        style="letter-spacing:6px;text-align:center"
         onkeydown="if(event.key==='Enter')tryUnlock()">
       <button id="lock-enter" onclick="tryUnlock()">Entrar →</button>
     </div>
@@ -531,6 +538,7 @@ tr:hover td{background:var(--yellow-light)}
           <div class="field"><label>PDV Atribuído</label><select id="sup-new-pdv"></select></div>
           <div class="field"><label>Turno Habitual</label><select id="sup-new-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option><option>Rotativo</option></select></div>
           <div class="field"><label>Contacto (opcional)</label><input type="text" id="sup-new-tel" placeholder="+258 8X XXX XXXX"></div>
+          <div class="field"><label>PIN de Acesso (4 dígitos)</label><input type="password" id="sup-new-pin" placeholder="••••" maxlength="4" style="letter-spacing:4px;text-align:center"></div>
         </div>
         <button class="btn-accent" style="margin-top:12px" onclick="addPromotora()">+ Adicionar à Equipa</button>
       </div>
@@ -658,7 +666,7 @@ const BRINDES_TIPOS=["Boné","T-shirt","Copo","Porta-chaves","Brinde Surpresa"];
 // Paleta sem verde: vermelho, amarelo escuro, cinzento escuro, cinzento, amarelo
 const PALETTE=['#E4002B','#E0AC00','#1A1A1A','#767676','#FFC600','#B8001F'];
 
-let currentRole=null,reports=[],checkins=[],promotoras=[],sCharts={},cCharts={},editingRepId=null;
+let currentRole=null,currentPromoId=null,currentPromoNome=null,reports=[],checkins=[],promotoras=[],sCharts={},cCharts={},editingRepId=null;
 const $=id=>document.getElementById(id);
 const todayISO=()=>new Date().toISOString().slice(0,10);
 const nowHHMM=()=>new Date().toTimeString().slice(0,5);
@@ -683,52 +691,154 @@ function chartOpts(horiz){
 }
 function destroyCharts(o){Object.values(o).forEach(c=>c&&c.destroy());for(const k in o)delete o[k];}
 
-// ══ STORAGE ══
-async function sGet(key){
-  try{const r=await window.storage.get(key,false);if(r)return JSON.parse(r.value);}catch{}
-  try{const v=localStorage.getItem(key);return v?JSON.parse(v):null;}catch{return null;}
+// ══ SUPABASE ══
+const SB_URL='https://qowqhxymrscitisndsad.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvd3FoeHltcnNjaXRpc25kc2FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjgzNjksImV4cCI6MjEwMDgwNDM2OX0.-5X_vO9-de-xfQ3OVuO4IU3O9yHsRdhZSJEPm3LXdzA';
+
+async function sbFetch(method, table, data=null, query=''){
+  const res=await fetch(`${SB_URL}/rest/v1/${table}${query}`,{
+    method, headers:{
+      'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,
+      'Content-Type':'application/json','Prefer':'return=representation'
+    },
+    body:data?JSON.stringify(data):undefined
+  });
+  if(!res.ok){ console.error('sbFetch error',method,table,res.status,await res.text()); return null; }
+  const txt=await res.text();
+  return txt?JSON.parse(txt):true;
 }
-async function sSet(key,val){
-  const str=JSON.stringify(val);let ok=false;
-  try{const r=await window.storage.set(key,str,false);ok=!!r;}catch{}
-  if(!ok){try{localStorage.setItem(key,str);ok=true;}catch{}}
-  return ok;
-}
-async function addToIndex(idx,id){
-  const arr=await sGet(idx)||[];
-  if(!arr.includes(id)){arr.push(id);await sSet(idx,arr);}
-}
+
 async function loadAll(){
   reports=[];checkins=[];promotoras=[];
-  const pI=await sGet('idx:promotoras')||[];
-  for(const id of pI){const v=await sGet('promotora:'+id);if(v)promotoras.push(v);}
-  const rI=await sGet('idx:reports')||[];
-  for(const id of rI){const v=await sGet('report:'+id);if(v)reports.push(v);}
-  const cI=await sGet('idx:checkins')||[];
-  for(const id of cI){const v=await sGet('checkin:'+id);if(v)checkins.push(v);}
-  reports.sort((a,b)=>a.data.localeCompare(b.data));
+  try{
+    const [p,r,c]=await Promise.all([
+      sbFetch('GET','promotoras',null,'?order=criado_em.asc'),
+      sbFetch('GET','relatorios',null,'?order=data.asc'),
+      sbFetch('GET','checkins',null,'?order=data.asc,hora_entrada.asc')
+    ]);
+    if(p) promotoras=p.map(mapP);
+    if(r) reports=r.map(mapR);
+    if(c) checkins=c.map(mapC);
+  }catch(e){console.error('loadAll error',e);}
+}
+
+// Map DB snake_case → app camelCase
+function mapP(p){return{id:p.id,nome:p.nome,pdv:p.pdv,turno:p.turno,tel:p.tel,pin:p.pin||''};}
+function mapC(c){return{
+  id:c.id,promotaId:c.promotora_id,nome:c.nome,pdv:c.pdv,
+  pdvRegiao:c.pdv_regiao,data:c.data,turno:c.turno,
+  horaEntrada:c.hora_entrada,horaSaidaPrev:c.hora_saida_prev,
+  uniforme:c.uniforme,material:c.material,geleira:c.geleira,stockOk:c.stock_ok,
+  obsEntrada:c.obs_entrada,brindesIn:c.brindes_in||{},checkout:c.checkout
+};}
+function mapR(r){return{
+  id:r.id,status:r.status,promotaId:r.promotora_id,promotora:r.promotora,
+  pdv:r.pdv,regiao:r.regiao,data:r.data,turno:r.turno,
+  horaInicio:r.hora_inicio,horaFim:r.hora_fim,horasCalc:r.horas_calc,
+  stockIni:r.stock_ini||{},stockFim:r.stock_fim||{},consumoTotal:r.consumo_total,
+  precos:r.precos||{},validades:r.validades||{},brindesTurno:r.brindes_turno||{},
+  visitantes:r.visitantes,interacoes:r.interacoes,amostragens:r.amostragens,
+  vendas:r.vendas,concorrencia:r.concorrencia,
+  fotoSetup:r.foto_setup,fotoPdv:r.foto_pdv,fotoGeleira:r.foto_geleira,
+  fotoDisplay:r.foto_display,fotoInteracao:r.foto_interacao,fotoPreco:r.foto_preco,
+  obs:r.obs,notaSupervisor:r.nota_supervisor,
+  editadoPorSupervisor:r.editado_supervisor,submetidoEm:r.submetido_em
+};}
+
+async function savePromotora(p){
+  return sbFetch('POST','promotoras',{
+    id:p.id,nome:p.nome,pdv:p.pdv,turno:p.turno,tel:p.tel,pin:p.pin||''
+  });
+}
+async function saveCheckin(c){
+  return sbFetch('POST','checkins',{
+    id:c.id,promotora_id:c.promotaId,nome:c.nome,pdv:c.pdv,
+    pdv_regiao:c.pdvRegiao,data:c.data,turno:c.turno,
+    hora_entrada:c.horaEntrada,hora_saida_prev:c.horaSaidaPrev,
+    uniforme:c.uniforme,material:c.material,geleira:c.geleira,stock_ok:c.stockOk,
+    obs_entrada:c.obsEntrada,brindes_in:c.brindesIn,checkout:c.checkout
+  });
+}
+async function updateCheckin(id,checkout){
+  return sbFetch('PATCH','checkins',{checkout},`?id=eq.${id}`);
+}
+async function saveRelatorio(r){
+  return sbFetch('POST','relatorios',{
+    id:r.id,status:r.status,promotora_id:r.promotaId,promotora:r.promotora,
+    pdv:r.pdv,regiao:r.regiao,data:r.data,turno:r.turno,
+    hora_inicio:r.horaInicio,hora_fim:r.horaFim,horas_calc:r.horasCalc,
+    stock_ini:r.stockIni,stock_fim:r.stockFim,consumo_total:r.consumoTotal,
+    precos:r.precos,validades:r.validades,brindes_turno:r.brindesTurno,
+    visitantes:r.visitantes,interacoes:r.interacoes,amostragens:r.amostragens,
+    vendas:r.vendas,concorrencia:r.concorrencia,
+    foto_setup:r.fotoSetup,foto_pdv:r.fotoPdv,foto_geleira:r.fotoGeleira,
+    foto_display:r.fotoDisplay,foto_interacao:r.fotoInteracao,foto_preco:r.fotoPreco,
+    obs:r.obs,submetido_em:r.submetidoEm
+  });
+}
+async function updateRelatorio(r){
+  return sbFetch('PATCH','relatorios',{
+    status:r.status,vendas:r.vendas,interacoes:r.interacoes,
+    amostragens:r.amostragens,visitantes:r.visitantes,
+    nota_supervisor:r.notaSupervisor||null,
+    editado_supervisor:true,editado_em:new Date().toISOString(),
+    validado_em:new Date().toISOString()
+  },`?id=eq.${r.id}`);
 }
 
 // ══ LOCK ══
 let selectedRole=null;
-function selectRole(r,btn){
+async function selectRole(r,btn){
   selectedRole=r;
   document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('sel'));
   btn.classList.add('sel');
   $('lock-pin-section').style.display='flex';
-  $('lock-error').textContent='';$('lock-pin').value='';$('lock-pin').focus();
+  $('lock-error').textContent='';$('lock-pin').value='';
+  if(r==='promotora'){
+    // Load promotoras from Supabase to populate dropdown
+    $('lock-promo-select').style.display='block';
+    $('lock-pin-label').textContent='Selecciona o teu nome e PIN';
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/promotoras?order=nome.asc`,{
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+      });
+      const list=await res.json();
+      $('lock-promo-nome').innerHTML='<option value="">Selecciona o teu nome...</option>'+
+        list.map(p=>`<option value="${p.id}" data-pin="${p.pin||''}">${p.nome}</option>`).join('');
+    }catch(e){ $('lock-promo-nome').innerHTML='<option value="">Erro ao carregar. Tenta de novo.</option>'; }
+  } else {
+    $('lock-promo-select').style.display='none';
+    $('lock-pin-label').textContent='PIN de acesso';
+  }
+  $('lock-pin').focus();
 }
-function tryUnlock(){
+async function tryUnlock(){
   if(!selectedRole){$('lock-error').textContent='Escolhe um perfil.';return;}
-  if($('lock-pin').value!==PINS[selectedRole]){$('lock-error').textContent='PIN incorrecto. Tenta de novo.';return;}
-  currentRole=selectedRole;
+  const pin=$('lock-pin').value;
+  if(selectedRole==='promotora'){
+    const sel=$('lock-promo-nome');
+    const pId=sel.value;
+    if(!pId){$('lock-error').textContent='Selecciona o teu nome.';return;}
+    const opt=sel.options[sel.selectedIndex];
+    const correctPin=opt.dataset.pin;
+    if(!correctPin){$('lock-error').textContent='Esta promotora não tem PIN definido. Contacta o supervisor.';return;}
+    if(pin!==correctPin){$('lock-error').textContent='PIN incorrecto. Tenta de novo.';return;}
+    currentRole='promotora';
+    currentPromoId=pId;
+    currentPromoNome=opt.text;
+  } else {
+    if(pin!==PINS[selectedRole]){$('lock-error').textContent='PIN incorrecto. Tenta de novo.';return;}
+    currentRole=selectedRole;
+    currentPromoId=null;currentPromoNome=null;
+  }
   $('lock-screen').style.display='none';
   $('app').style.display='flex';$('app').style.flexDirection='column';
-  $('topbar-user').textContent={promotora:'🎯 Promotora',supervisor:'📋 Supervisor',cliente:'📊 Cliente'}[currentRole];
+  const labels={promotora:'🎯 '+currentPromoNome,supervisor:'📋 Supervisor',cliente:'📊 Cliente'};
+  $('topbar-user').textContent=labels[currentRole];
   initApp();
 }
 function doLogout(){
-  currentRole=null;selectedRole=null;
+  currentRole=null;selectedRole=null;currentPromoId=null;currentPromoNome=null;
   $('lock-screen').style.display='flex';$('app').style.display='none';
   $('lock-pin-section').style.display='none';$('lock-pin').value='';$('lock-error').textContent='';
   document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('sel'));
@@ -760,6 +870,9 @@ async function onTabOpen(tab){
 }
 
 // ══ INIT ══
+// Auto-refresh cliente every 60s
+let refreshTimer=null;
+
 async function initApp(){
   initTabs();await loadAll();
   document.querySelectorAll('.layer').forEach(l=>l.classList.remove('active'));
@@ -767,27 +880,33 @@ async function initApp(){
   buildSkuBlocks();buildBrindesBlocks();populateEstabelecimentos();
   if(currentRole==='promotora')await initPromotoraLayer();
   if(currentRole==='supervisor'){renderSEquipa();renderSCheckins();}
-  if(currentRole==='cliente')await renderCliente();
+  if(currentRole==='cliente'){
+    await renderCliente();
+    // Auto-refresh a cada 60 segundos
+    if(refreshTimer)clearInterval(refreshTimer);
+    refreshTimer=setInterval(async()=>{await loadAll();renderCliente();},60000);
+  }
   $('ci-data').value=todayISO();$('f-data').value=todayISO();
   $('ci-hora-entrada').value=nowHHMM();
 }
 
 // ══ PROMOTORA ══
 async function initPromotoraLayer(){
-  const opts=promotoras.length
-    ?promotoras.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')
-    :'<option value="">Sem promotoras. Contacta o supervisor.</option>';
-  $('ci-nome').innerHTML='<option value="">Seleccionar...</option>'+opts;
-  $('f-nome').innerHTML='<option value="">Seleccionar...</option>'+opts;
-  $('ci-nome').addEventListener('change',()=>{
-    const p=promotoras.find(x=>x.id===$('ci-nome').value);
-    $('ci-pdv-display').value=p?p.pdv:'';
+  // Auto-fill with logged-in promotora — she can't change it
+  const p=promotoras.find(x=>x.id===currentPromoId);
+  if(p){
+    // Check-in selects
+    $('ci-nome').innerHTML=`<option value="${p.id}" selected>${p.nome}</option>`;
+    $('ci-pdv-display').value=p.pdv;
+    // Report selects
+    $('f-nome').innerHTML=`<option value="${p.id}" selected>${p.nome}</option>`;
+    $('f-pdv-display').value=p.pdv;
+  }
+  // Make selects read-only visually
+  ['ci-nome','f-nome'].forEach(id=>{
+    const el=$(id);if(el){el.disabled=true;el.style.background='var(--line2)';el.style.color='var(--ink2)';}
   });
-  $('f-nome').addEventListener('change',()=>{
-    const p=promotoras.find(x=>x.id===$('f-nome').value);
-    $('f-pdv-display').value=p?p.pdv:'';
-    renderPHistorico();
-  });
+  renderPHistorico();
 }
 function calcHorasAuto(){
   $('co-horas-calc').value=calcHours($('ci-hora-entrada').value,$('co-hora-saida').value);
@@ -833,9 +952,8 @@ async function doCheckin(){
     geleira:$('ci-geleira').checked,stockOk:$('ci-stock-ok').checked,
     obsEntrada:$('ci-obs-entrada').value,brindesIn:bIn,checkout:null
   };
-  const ok=await sSet('checkin:'+ci.id,ci);
+  const ok=await saveCheckin(ci);
   if(ok){
-    await addToIndex('idx:checkins',ci.id);
     showToast('Check-in registado! Bom turno, '+p.nome.split(' ')[0]+' 🎉');
     $('checkout-card').style.display='block';$('checkout-card').dataset.ciId=ci.id;
     $('f-nome').value=pId;$('f-pdv-display').value=p.pdv;
@@ -844,15 +962,13 @@ async function doCheckin(){
 }
 async function doCheckout(){
   const ciId=$('checkout-card').dataset.ciId;
-  const ci=await sGet('checkin:'+ciId);
-  if(!ci){showToast('Check-in não encontrado.','error');return;}
   const bOut={};BRINDES_TIPOS.forEach(b=>bOut[b]=parseInt($('co-br-out-'+slugB(b)).value)||0);
-  ci.checkout={
+  const checkout={
     horaSaida:$('co-hora-saida').value,horasCalc:$('co-horas-calc').value,
     brindesOut:bOut,ocorrencias:$('co-ocorrencias').value,
     limpeza:$('co-limpeza').checked,stockDev:$('co-stock-dev').checked,fotosEnv:$('co-fotos-env').checked
   };
-  const ok=await sSet('checkin:'+ciId,ci);
+  const ok=await updateCheckin(ciId,checkout);
   if(ok){showToast('Check-out registado! 👏');}
   else showToast('Erro no check-out.','error');
   $('checkout-card').style.display='none';
@@ -886,9 +1002,8 @@ async function submitReport(){
     fotoInteracao:$('f-foto-interacao').checked,fotoPreco:$('f-foto-preco').checked,
     obs:$('f-obs').value,submetidoEm:new Date().toISOString()
   };
-  const ok=await sSet('report:'+rep.id,rep);
+  const ok=await saveRelatorio(rep);
   if(ok){
-    await addToIndex('idx:reports',rep.id);
     showToast('Relatório submetido! ✅ Aguarda validação.');
     ['f-visitantes','f-interacoes','f-amostragens','f-vendas'].forEach(id=>$(id).value=0);
     SKUS.forEach(s=>{$('f-stock-ini-'+s).value=0;$('f-stock-fim-'+s).value=0;});
@@ -897,7 +1012,7 @@ async function submitReport(){
 }
 async function renderPHistorico(){
   await loadAll();
-  const pId=$('f-nome').value;
+  const pId=currentPromoId||$('f-nome').value;
   if(!pId){$('p-hist-content').innerHTML='<div class="empty"><div class="empty-icon">📄</div>Selecciona o teu nome no separador Relatório.</div>';return;}
   const mine=reports.filter(r=>r.promotaId===pId);
   if(!mine.length){$('p-hist-content').innerHTML='<div class="empty"><div class="empty-icon">🔍</div>Sem registos ainda.</div>';return;}
@@ -915,23 +1030,74 @@ async function renderPHistorico(){
 // ══ SUPERVISOR ══
 async function addPromotora(){
   const nome=$('sup-new-nome').value.trim();
+  const pin=$('sup-new-pin').value.trim();
   if(!nome){showToast('Indica o nome da promotora.','error');return;}
-  const p={id:'p_'+Date.now(),nome,pdv:$('sup-new-pdv').value,turno:$('sup-new-turno').value,tel:$('sup-new-tel').value};
-  const ok=await sSet('promotora:'+p.id,p);
+  if(!pin||pin.length<4){showToast('Define um PIN de 4 dígitos.','error');return;}
+  const p={id:'p_'+Date.now(),nome,pdv:$('sup-new-pdv').value,turno:$('sup-new-turno').value,tel:$('sup-new-tel').value,pin};
+  const ok=await savePromotora(p);
   if(!ok){showToast('Erro ao guardar. Tenta de novo.','error');return;}
-  await addToIndex('idx:promotoras',p.id);
   showToast(nome+' adicionada! ✅');
-  $('sup-new-nome').value='';$('sup-new-tel').value='';
+  $('sup-new-nome').value='';$('sup-new-tel').value='';$('sup-new-pin').value='';
   await loadAll();renderSEquipa();
 }
 function renderSEquipa(){
   const el=$('s-equipa-list');
   if(!promotoras.length){el.innerHTML='<div class="empty"><div class="empty-icon">👥</div>Sem promotoras cadastradas.</div>';return;}
-  el.innerHTML='<div class="status-bar">'+promotoras.map(p=>`
-    <div class="status-row">
-      <div><div class="status-name">${p.nome}</div><div class="status-meta">${p.pdv} · ${p.turno}${p.tel?' · '+p.tel:''}</div></div>
-      <span class="badge ok">Activa</span>
+  el.innerHTML='<div class="card" style="padding:0;overflow:hidden">'+promotoras.map(p=>`
+    <div class="approval-row">
+      <div class="approval-info" style="flex:1">
+        <div class="approval-name">${p.nome}</div>
+        <div class="approval-meta">${p.pdv} · ${p.turno}${p.tel?' · '+p.tel:''} · PIN: ${'•'.repeat((p.pin||'').length)||'—'}</div>
+      </div>
+      <div class="approval-actions">
+        <button class="btn-sm edit-btn" onclick="openEditPromotora('${p.id}')">✏️ Editar</button>
+        <button class="btn-sm reject" onclick="deletePromotora('${p.id}','${p.nome}')">🗑 Apagar</button>
+      </div>
     </div>`).join('')+'</div>';
+}
+
+function openEditPromotora(id){
+  const p=promotoras.find(x=>x.id===id);if(!p)return;
+  $('modal-title').textContent='Editar Promotora — '+p.nome;
+  $('modal-body').innerHTML=`
+    <div class="grid" style="gap:11px;margin-top:4px">
+      <div class="field"><label>Nome</label><input type="text" id="ep-nome" value="${p.nome}"></div>
+      <div class="field"><label>PDV</label>
+        <select id="ep-pdv">${ESTABELECIMENTOS.map(e=>`<option value="${e.nome}" ${e.nome===p.pdv?'selected':''}>${e.nome} (${e.regiao})</option>`).join('')}</select></div>
+      <div class="field"><label>Turno</label>
+        <select id="ep-turno">
+          ${['Manhã','Tarde','Noite','Rotativo'].map(t=>`<option ${t===p.turno?'selected':''}>${t}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Contacto</label><input type="text" id="ep-tel" value="${p.tel||''}"></div>
+      <div class="field"><label>Novo PIN (deixa em branco para manter)</label>
+        <input type="password" id="ep-pin" placeholder="••••" maxlength="4" style="letter-spacing:4px;text-align:center"></div>
+    </div>`;
+  $('modal-actions').innerHTML=`
+    <button class="btn-primary" onclick="saveEditPromotora('${id}')">💾 Guardar</button>
+    <button class="btn-sm" onclick="closeModal()">Cancelar</button>`;
+  $('modal-overlay').classList.add('open');
+}
+
+async function saveEditPromotora(id){
+  const p=promotoras.find(x=>x.id===id);if(!p)return;
+  const newPin=$('ep-pin').value.trim();
+  const updated={
+    nome:$('ep-nome').value.trim()||p.nome,
+    pdv:$('ep-pdv').value,
+    turno:$('ep-turno').value,
+    tel:$('ep-tel').value.trim(),
+    pin:newPin.length>=4?newPin:p.pin
+  };
+  const ok=await sbFetch('PATCH','promotoras',updated,`?id=eq.${id}`);
+  if(ok){showToast('Promotora actualizada! ✅');closeModal();await loadAll();renderSEquipa();}
+  else showToast('Erro ao guardar.','error');
+}
+
+async function deletePromotora(id,nome){
+  if(!confirm(`Apagar "${nome}"? Esta acção não pode ser desfeita.`))return;
+  const ok=await sbFetch('DELETE','promotoras',null,`?id=eq.${id}`);
+  if(ok){showToast(nome+' removida.');await loadAll();renderSEquipa();}
+  else showToast('Erro ao apagar.','error');
 }
 function renderSCheckins(){
   const ci=checkins.filter(c=>c.data===todayISO());
@@ -1006,19 +1172,21 @@ async function saveModal(newStatus){
   r.visitantes=parseInt($('m-visitantes').value)??r.visitantes;
   r.notaSupervisor=$('m-nota').value||'';
   r.status=newStatus==='rejected'?'rejected':'approved';
-  r.editadoPorSupervisor=true;
-  r.editadoEm=new Date().toISOString();
-  await sSet('report:'+r.id,r);
+  await updateRelatorio(r);
   await loadAll();
   showToast(newStatus==='rejected'?'Relatório rejeitado.':'Relatório guardado! ✅');
   closeModal();renderSValidar();
 }
 async function validateReport(id,status){
-  const rep=await sGet('report:'+id);if(!rep)return;
-  rep.status=status;rep.validadoEm=new Date().toISOString();
-  await sSet('report:'+id,rep);
+  await sbFetch('PATCH','relatorios',{status,validado_em:new Date().toISOString()},`?id=eq.${id}`);
   showToast(status==='approved'?'Aprovado! ✅':'Rejeitado.');
   await loadAll();renderSValidar();
+}
+async function deleteRelatorio(id,promotora,data){
+  if(!confirm(`Apagar relatório de ${promotora} (${data})? Esta acção não pode ser desfeita.`))return;
+  const ok=await sbFetch('DELETE','relatorios',null,`?id=eq.${id}`);
+  if(ok){showToast('Relatório apagado.');await loadAll();renderSValidar();}
+  else showToast('Erro ao apagar.','error');
 }
 function closeModal(){$('modal-overlay').classList.remove('open');editingRepId=null;}
 $('modal-overlay').addEventListener('click',e=>{if(e.target===$('modal-overlay'))closeModal();});
@@ -1030,11 +1198,12 @@ function renderSValidar(){
   const mkRow=(r,pend)=>`
     <div class="approval-row">
       <div class="approval-name">${r.promotora} — ${r.pdv} <span style="color:var(--muted);font-weight:400;font-size:11px">${r.data} · ${r.turno}</span></div>
-      <div class="approval-meta">Vendas: <strong>${r.vendas}</strong> · Interacções: ${r.interacoes} · Horas: ${r.horasCalc||'—'} · Fotos: ${[r.fotoSetup,r.fotoPdv,r.fotoGeleira,r.fotoDisplay,r.fotoInteracao,r.fotoPreco].filter(Boolean).length}/6${r.notaSupervisor?` · Nota: <em>${r.notaSupervisor}</em>`:''}</div>
+      <div class="approval-meta">Vendas: <strong>${r.vendas}</strong> · Interacções: ${r.interacoes} · Horas: ${r.horasCalc||'—'} · Fotos: ${[r.fotoSetup,r.fotoPdv,r.fotoGeleira,r.fotoDisplay,r.fotoInteracao,r.fotoPreco].filter(Boolean).length}/6</div>
       <div class="approval-actions">
         <button class="btn-sm edit-btn" onclick="openModal('${r.id}')">👁 Ver / Editar</button>
         ${pend?`<button class="btn-sm approve" onclick="validateReport('${r.id}','approved')">✅ Aprovar</button>
                 <button class="btn-sm reject" onclick="validateReport('${r.id}','rejected')">❌ Rejeitar</button>`:''}
+        <button class="btn-sm reject" onclick="deleteRelatorio('${r.id}','${r.promotora}','${r.data}')">🗑</button>
       </div>
     </div>`;
   $('s-pendentes').innerHTML=pending.length
@@ -1152,7 +1321,10 @@ function renderSRegistos(){
       <td><strong>${r.vendas}</strong></td>
       <td><span class="badge ${conv>=30?'ok':conv>=15?'warn':'danger'}">${conv}%</span></td>
       <td>${bT(r)}</td><td><span class="badge ${fotos>=5?'ok':'warn'}">${fotos}/6</span></td>
-      <td><button class="btn-sm edit-btn" onclick="openModal('${r.id}')">👁 Ver</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn-sm edit-btn" onclick="openModal('${r.id}')">👁 Ver</button>
+        <button class="btn-sm reject" style="margin-left:4px" onclick="deleteRelatorio('${r.id}','${r.promotora}','${r.data}')">🗑</button>
+      </td>
     </tr>`;
   }).join(''):'<tr><td colspan="13" class="empty">Sem registos para os filtros seleccionados.</td></tr>';
 }
