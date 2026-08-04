@@ -434,9 +434,9 @@ tr:hover td{background:var(--yellow-light)}
           <div class="field"><label>Promotora</label><select id="ci-nome"><option value="">Seleccionar...</option></select></div>
           <div class="field"><label>PDV Atribuído</label><input type="text" id="ci-pdv-display" readonly></div>
           <div class="field"><label>Data</label><input type="date" id="ci-data"></div>
-          <div class="field"><label>Turno</label><select id="ci-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option></select></div>
-          <div class="field"><label>Hora de Entrada</label><input type="time" id="ci-hora-entrada"></div>
-          <div class="field"><label>Hora Prevista de Saída</label><input type="time" id="ci-hora-saida-prev"></div>
+          <div class="field"><label>Turno</label><select id="ci-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option><option>Dia Inteiro</option></select></div>
+          <div class="field"><label>Hora de Entrada</label><input type="time" id="ci-hora-entrada" readonly style="background:var(--line2);color:var(--ink2)"></div>
+          <div class="field"><label>Hora Prevista de Saída</label><input type="time" id="ci-hora-saida-prev" readonly style="background:var(--line2);color:var(--ink2)"></div>
         </div>
         <hr class="divider">
         <p class="section-label">Condições de Entrada</p>
@@ -456,7 +456,7 @@ tr:hover td{background:var(--yellow-light)}
       <div class="card" id="checkout-card" style="display:none">
         <div class="card-title"><div class="icon accent">🏁</div> Check-out de Fim de Turno</div>
         <div class="grid2">
-          <div class="field"><label>Hora de Saída Real</label><input type="time" id="co-hora-saida" oninput="calcHorasAuto()"></div>
+          <div class="field"><label>Hora de Saída Real</label><input type="time" id="co-hora-saida" readonly style="background:var(--line2);color:var(--ink2)"></div>
           <div class="field"><label>Horas Trabalhadas</label><input type="text" id="co-horas-calc" readonly></div>
         </div>
         <p class="section-label" style="margin-top:12px">🎁 Brindes Devolvidos — Saída</p>
@@ -479,7 +479,7 @@ tr:hover td{background:var(--yellow-light)}
           <div class="field"><label>Promotora</label><select id="f-nome"><option value="">Seleccionar...</option></select></div>
           <div class="field"><label>PDV</label><input type="text" id="f-pdv-display" readonly></div>
           <div class="field"><label>Data</label><input type="date" id="f-data"></div>
-          <div class="field"><label>Turno</label><select id="f-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option></select></div>
+          <div class="field"><label>Turno</label><select id="f-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option><option>Dia Inteiro</option></select></div>
           <div class="field"><label>Hora Início</label><input type="time" id="f-hora-inicio"></div>
           <div class="field"><label>Hora Fim</label><input type="time" id="f-hora-fim"></div>
         </div>
@@ -491,7 +491,7 @@ tr:hover td{background:var(--yellow-light)}
         <div class="grid">
           <div class="field"><label>Visitantes na Loja</label><input type="number" min="0" id="f-visitantes" value="0"></div>
           <div class="field"><label>Abordagens / Interacções</label><input type="number" min="0" id="f-interacoes" value="0"></div>
-          <div class="field"><label>Amostragens / Degustações</label><input type="number" min="0" id="f-amostragens" value="0"></div>
+          <div class="field"><label>Abordagens Feitas</label><input type="number" min="0" id="f-amostragens" value="0"></div>
           <div class="field"><label>Vendas Convertidas</label><input type="number" min="0" id="f-vendas" value="0"></div>
           <div class="field"><label>Concorrência no PDV?</label><select id="f-concorrencia"><option value="">—</option><option>Sim</option><option>Não</option></select></div>
         </div>
@@ -536,7 +536,7 @@ tr:hover td{background:var(--yellow-light)}
         <div class="grid">
           <div class="field"><label>Nome Completo</label><input type="text" id="sup-new-nome" placeholder="Nome da promotora"></div>
           <div class="field"><label>PDV Atribuído</label><select id="sup-new-pdv"></select></div>
-          <div class="field"><label>Turno Habitual</label><select id="sup-new-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option><option>Rotativo</option></select></div>
+          <div class="field"><label>Turno Habitual</label><select id="sup-new-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option><option>Dia Inteiro</option><option>Rotativo</option></select></div>
           <div class="field"><label>Contacto (opcional)</label><input type="text" id="sup-new-tel" placeholder="+258 8X XXX XXXX"></div>
           <div class="field"><label>PIN de Acesso (4 dígitos)</label><input type="password" id="sup-new-pin" placeholder="••••" maxlength="4" style="letter-spacing:4px;text-align:center"></div>
         </div>
@@ -662,7 +662,7 @@ const ESTABELECIMENTOS=[
   {nome:"Shoprite Beira",regiao:"Centro"},{nome:"Shoprite Pemba",regiao:"Norte"}
 ];
 const SKUS=["Lata","Garrafa"];
-const BRINDES_TIPOS=["Boné","T-shirt","Copo","Porta-chaves","Brinde Surpresa"];
+const BRINDES_TIPOS=["Óculos","Relógio","Meias","Abre-garrafas"];
 // Paleta sem verde: vermelho, amarelo escuro, cinzento escuro, cinzento, amarelo
 const PALETTE=['#E4002B','#E0AC00','#1A1A1A','#767676','#FFC600','#B8001F'];
 
@@ -737,7 +737,7 @@ function mapR(r){return{
   horaInicio:r.hora_inicio,horaFim:r.hora_fim,horasCalc:r.horas_calc,
   stockIni:r.stock_ini||{},stockFim:r.stock_fim||{},consumoTotal:r.consumo_total,
   precos:r.precos||{},validades:r.validades||{},brindesTurno:r.brindes_turno||{},
-  visitantes:r.visitantes,interacoes:r.interacoes,amostragens:r.amostragens,
+  visitantes:r.visitantes,interacoes:r.interacoes,abordagens:r.amostragens,
   vendas:r.vendas,concorrencia:r.concorrencia,
   fotoSetup:r.foto_setup,fotoPdv:r.foto_pdv,fotoGeleira:r.foto_geleira,
   fotoDisplay:r.foto_display,fotoInteracao:r.foto_interacao,fotoPreco:r.foto_preco,
@@ -769,7 +769,7 @@ async function saveRelatorio(r){
     hora_inicio:r.horaInicio,hora_fim:r.horaFim,horas_calc:r.horasCalc,
     stock_ini:r.stockIni,stock_fim:r.stockFim,consumo_total:r.consumoTotal,
     precos:r.precos,validades:r.validades,brindes_turno:r.brindesTurno,
-    visitantes:r.visitantes,interacoes:r.interacoes,amostragens:r.amostragens,
+    visitantes:r.visitantes,interacoes:r.interacoes,abordagens:r.amostragens,
     vendas:r.vendas,concorrencia:r.concorrencia,
     foto_setup:r.fotoSetup,foto_pdv:r.fotoPdv,foto_geleira:r.fotoGeleira,
     foto_display:r.fotoDisplay,foto_interacao:r.fotoInteracao,foto_preco:r.fotoPreco,
@@ -779,7 +779,7 @@ async function saveRelatorio(r){
 async function updateRelatorio(r){
   return sbFetch('PATCH','relatorios',{
     status:r.status,vendas:r.vendas,interacoes:r.interacoes,
-    amostragens:r.amostragens,visitantes:r.visitantes,
+    abordagens:r.amostragens,visitantes:r.visitantes,
     nota_supervisor:r.notaSupervisor||null,
     editado_supervisor:true,editado_em:new Date().toISOString(),
     validado_em:new Date().toISOString()
@@ -888,6 +888,7 @@ async function initApp(){
   }
   $('ci-data').value=todayISO();$('f-data').value=todayISO();
   $('ci-hora-entrada').value=nowHHMM();
+  $('ci-hora-saida-prev').value='';
 }
 
 // ══ PROMOTORA ══
@@ -956,6 +957,7 @@ async function doCheckin(){
   if(ok){
     showToast('Check-in registado! Bom turno, '+p.nome.split(' ')[0]+' 🎉');
     $('checkout-card').style.display='block';$('checkout-card').dataset.ciId=ci.id;
+    $('co-hora-saida').value=nowHHMM();calcHorasAuto();
     $('f-nome').value=pId;$('f-pdv-display').value=p.pdv;
     $('f-hora-inicio').value=ci.horaEntrada;$('f-turno').value=ci.turno;
   }else showToast('Erro ao registar check-in.','error');
@@ -994,7 +996,7 @@ async function submitReport(){
     stockIni:sI,stockFim:sF,consumoTotal:consumo,precos:pr,validades:val,brindesTurno:bT,
     visitantes:parseInt($('f-visitantes').value)||0,
     interacoes:parseInt($('f-interacoes').value)||0,
-    amostragens:parseInt($('f-amostragens').value)||0,
+    abordagens:parseInt($('f-amostragens').value)||0,
     vendas:parseInt($('f-vendas').value)||0,
     concorrencia:$('f-concorrencia').value,
     fotoSetup:$('f-foto-setup').checked,fotoPdv:$('f-foto-pdv').checked,
@@ -1128,7 +1130,7 @@ function openModal(repId){
     <div class="modal-section">Resultados</div>
     <div class="modal-row"><span class="modal-row-label">Visitantes</span>${r.visitantes}</div>
     <div class="modal-row"><span class="modal-row-label">Interacções</span>${r.interacoes}</div>
-    <div class="modal-row"><span class="modal-row-label">Amostragens</span>${r.amostragens}</div>
+    <div class="modal-row"><span class="modal-row-label">Abordagens Feitas</span>${r.amostragens}</div>
     <div class="modal-row"><span class="modal-row-label">Vendas</span><strong style="color:var(--red)">${r.vendas}</strong></div>
     <div class="modal-row"><span class="modal-row-label">Conversão</span>${r.interacoes?((r.vendas/r.interacoes)*100).toFixed(1)+'%':'—'}</div>
     <div class="modal-row"><span class="modal-row-label">Concorrência</span>${r.concorrencia||'—'}</div>
@@ -1145,14 +1147,34 @@ function openModal(repId){
 
     <!-- EDIÇÃO — sempre disponível para supervisor -->
     <div class="modal-edit-section">
-      <div class="modal-edit-title">✏️ Ajuste do Supervisor ${r.status==='approved'?'(já aprovado — edição re-guarda como aprovado)':''}</div>
+      <div class="modal-edit-title">✏️ Ajuste do Supervisor ${r.status==='approved'?'(já aprovado — re-guarda como aprovado)':''}</div>
       <div class="grid" style="gap:10px">
-        <div class="field"><label>Vendas</label><input type="number" min="0" id="m-vendas" value="${r.vendas}"></div>
-        <div class="field"><label>Interacções</label><input type="number" min="0" id="m-interacoes" value="${r.interacoes}"></div>
-        <div class="field"><label>Amostragens</label><input type="number" min="0" id="m-amostragens" value="${r.amostragens}"></div>
+        <div class="field"><label>Data</label><input type="date" id="m-data" value="${r.data}"></div>
+        <div class="field"><label>Turno</label>
+          <select id="m-turno">
+            ${['Manhã','Tarde','Noite','Dia Inteiro'].map(t=>`<option ${t===r.turno?'selected':''}>${t}</option>`).join('')}
+          </select></div>
+        <div class="field"><label>Hora Início</label><input type="time" id="m-hora-inicio" value="${r.horaInicio||''}" readonly style="background:var(--line2);color:var(--muted)"></div>
+        <div class="field"><label>Hora Fim</label><input type="time" id="m-hora-fim" value="${r.horaFim||''}" readonly style="background:var(--line2);color:var(--muted)"></div>
         <div class="field"><label>Visitantes</label><input type="number" min="0" id="m-visitantes" value="${r.visitantes}"></div>
+        <div class="field"><label>Interacções</label><input type="number" min="0" id="m-interacoes" value="${r.interacoes}"></div>
+        <div class="field"><label>Abordagens Feitas</label><input type="number" min="0" id="m-amostragens" value="${r.amostragens}"></div>
+        <div class="field"><label>Vendas</label><input type="number" min="0" id="m-vendas" value="${r.vendas}"></div>
+        <div class="field"><label>Lata Ini</label><input type="number" min="0" id="m-lata-ini" value="${r.stockIni&&r.stockIni.Lata||0}"></div>
+        <div class="field"><label>Lata Fim</label><input type="number" min="0" id="m-lata-fim" value="${r.stockFim&&r.stockFim.Lata||0}"></div>
+        <div class="field"><label>Garrafa Ini</label><input type="number" min="0" id="m-garf-ini" value="${r.stockIni&&r.stockIni.Garrafa||0}"></div>
+        <div class="field"><label>Garrafa Fim</label><input type="number" min="0" id="m-garf-fim" value="${r.stockFim&&r.stockFim.Garrafa||0}"></div>
+        ${BRINDES_TIPOS.map(b=>'<div class="field"><label>🎁 '+b+'</label><input type="number" min="0" id="m-br-'+b.replace(/[^a-zA-Z0-9]/g,"").toLowerCase()+'" value="'+(r.brindesTurno&&r.brindesTurno[b]||0)+'"></div>').join('')}
+        <div class="field"><label>Concorrência</label>
+          <select id="m-concorrencia">
+            <option value="" ${!r.concorrencia?'selected':''}>—</option>
+            <option ${r.concorrencia==='Sim'?'selected':''}>Sim</option>
+            <option ${r.concorrencia==='Não'?'selected':''}>Não</option>
+          </select></div>
+        <div class="field" style="grid-column:1/-1"><label>Observações</label>
+          <textarea id="m-obs" style="min-height:50px">${r.obs||''}</textarea></div>
       </div>
-      <div class="field" style="margin-top:10px"><label>Nota do Supervisor</label>
+      <div class="field" style="margin-top:10px"><label>Nota Interna (não visível ao cliente)</label>
         <input type="text" id="m-nota" value="${r.notaSupervisor||''}" placeholder="Motivo da correcção…"></div>
     </div>
   `;
@@ -1166,11 +1188,28 @@ function openModal(repId){
 }
 async function saveModal(newStatus){
   const r=reports.find(x=>x.id===editingRepId);if(!r)return;
-  r.vendas=parseInt($('m-vendas').value)??r.vendas;
-  r.interacoes=parseInt($('m-interacoes').value)??r.interacoes;
-  r.amostragens=parseInt($('m-amostragens').value)??r.amostragens;
-  r.visitantes=parseInt($('m-visitantes').value)??r.visitantes;
+  r.data=$('m-data').value||r.data;
+  r.turno=$('m-turno').value||r.turno;
+  r.horaInicio=$('m-hora-inicio').value||r.horaInicio;
+  r.horaFim=$('m-hora-fim').value||r.horaFim;
+  r.horasCalc=calcHours(r.horaInicio,r.horaFim)||r.horasCalc;
+  r.visitantes=parseInt($('m-visitantes').value)||0;
+  r.interacoes=parseInt($('m-interacoes').value)||0;
+  r.amostragens=parseInt($('m-amostragens').value)||0;
+  r.vendas=parseInt($('m-vendas').value)||0;
+  r.concorrencia=$('m-concorrencia').value;
+  r.obs=$('m-obs').value;
   r.notaSupervisor=$('m-nota').value||'';
+  // Stock
+  if(!r.stockIni)r.stockIni={};if(!r.stockFim)r.stockFim={};
+  r.stockIni.Lata=parseInt($('m-lata-ini').value)||0;
+  r.stockFim.Lata=parseInt($('m-lata-fim').value)||0;
+  r.stockIni.Garrafa=parseInt($('m-garf-ini').value)||0;
+  r.stockFim.Garrafa=parseInt($('m-garf-fim').value)||0;
+  r.consumoTotal=Math.max(0,r.stockIni.Lata-r.stockFim.Lata)+Math.max(0,r.stockIni.Garrafa-r.stockFim.Garrafa);
+  // Brindes
+  if(!r.brindesTurno)r.brindesTurno={};
+  BRINDES_TIPOS.forEach(b=>{ r.brindesTurno[b]=parseInt(document.getElementById('m-br-'+b.replace(/[^a-zA-Z0-9]/g,'').toLowerCase())?.value)||0; });
   r.status=newStatus==='rejected'?'rejected':'approved';
   await updateRelatorio(r);
   await loadAll();
@@ -1224,7 +1263,7 @@ function renderSOverview(){
   $('s-kpis').innerHTML=`
     <div class="kpi main"><div class="kpi-val">${tV}</div><div class="kpi-lbl">Vendas Totais</div><div class="kpi-sub">${reports.length} turnos</div></div>
     <div class="kpi dark"><div class="kpi-val">${tI}</div><div class="kpi-lbl">Interacções</div><div class="kpi-sub">Conv. ${conv}%</div></div>
-    <div class="kpi light"><div class="kpi-val">${tA}</div><div class="kpi-lbl">Amostragens</div></div>
+    <div class="kpi light"><div class="kpi-val">${tA}</div><div class="kpi-lbl">Abordagens Feitas</div></div>
     <div class="kpi ${pend?'alert':'light'}"><div class="kpi-val">${pend}</div><div class="kpi-lbl">Pendentes</div></div>
     <div class="kpi light"><div class="kpi-val">${[...new Set(reports.map(r=>r.promotaId))].length}</div><div class="kpi-lbl">Promotoras</div></div>
   `;
@@ -1349,7 +1388,7 @@ async function renderCliente(){
   $('c-hero-kpis').innerHTML=`
     <div class="client-kpi"><div class="client-kpi-val">${tV}</div><div class="client-kpi-lbl">Vendas Totais</div></div>
     <div class="client-kpi"><div class="client-kpi-val">${tI.toLocaleString()}</div><div class="client-kpi-lbl">Consumidores Abordados</div></div>
-    <div class="client-kpi"><div class="client-kpi-val">${tA}</div><div class="client-kpi-lbl">Amostragens</div></div>
+    <div class="client-kpi"><div class="client-kpi-val">${tA}</div><div class="client-kpi-lbl">Abordagens Feitas</div></div>
     <div class="client-kpi"><div class="client-kpi-val">${conv}%</div><div class="client-kpi-lbl">Taxa de Conversão</div></div>
   `;
   destroyCharts(cCharts);
@@ -1390,7 +1429,7 @@ async function renderCliente(){
   $('c-resumo').innerHTML=`
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${pdvsA}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">PDVs Activados</div></div>
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${promos}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Promotoras</div></div>
-    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--warn)">${consumo}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Unidades Amostradas</div></div>
+    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--warn)">${consumo}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Abordagens Feitas</div></div>
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${conc}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Ocorrências Concorrência</div></div>
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--ink)">${approved.length}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Activações Validadas</div></div>
   `;
