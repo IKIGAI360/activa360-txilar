@@ -529,6 +529,7 @@ tr:hover td{background:var(--yellow-light)}
       <button class="inner-tab" data-tab="s-pdvs">PDVs</button>
       <button class="inner-tab" data-tab="s-alertas">Alertas</button>
       <button class="inner-tab" data-tab="s-registos">Registos</button>
+      <button class="inner-tab" data-tab="s-metas">Metas</button>
     </div>
     <div class="tab-content active" id="tab-s-equipa">
       <div class="card">
@@ -592,6 +593,15 @@ tr:hover td{background:var(--yellow-light)}
       </table></div></div>
     </div>
   </div>
+
+    <div class="tab-content" id="tab-s-metas">
+      <div class="card">
+        <div class="card-title"><div class="icon accent">🎯</div> Metas de Vendas por PDV</div>
+        <p class="footnote" style="margin-bottom:14px">Define a meta total de vendas para cada ponto de venda durante a campanha. Aparece no dashboard do cliente como progresso real.</p>
+        <div id="s-metas-form"></div>
+        <button class="btn-primary" style="margin-top:14px" onclick="saveMetas()">💾 Guardar Metas</button>
+      </div>
+    </div>
 
   <!-- ══ CLIENTE ══ -->
   <div class="layer" id="layer-cliente">
@@ -778,10 +788,25 @@ async function saveRelatorio(r){
 }
 async function updateRelatorio(r){
   return sbFetch('PATCH','relatorios',{
-    status:r.status,vendas:r.vendas,interacoes:r.interacoes,
-    abordagens:r.amostragens,visitantes:r.visitantes,
+    status:r.status,
+    data:r.data,
+    turno:r.turno,
+    hora_inicio:r.horaInicio,
+    hora_fim:r.horaFim,
+    horas_calc:r.horasCalc,
+    visitantes:r.visitantes,
+    interacoes:r.interacoes,
+    amostragens:r.amostragens,
+    vendas:r.vendas,
+    concorrencia:r.concorrencia,
+    obs:r.obs,
+    stock_ini:r.stockIni,
+    stock_fim:r.stockFim,
+    consumo_total:r.consumoTotal,
+    brindes_turno:r.brindesTurno,
     nota_supervisor:r.notaSupervisor||null,
-    editado_supervisor:true,editado_em:new Date().toISOString(),
+    editado_supervisor:true,
+    editado_em:new Date().toISOString(),
     validado_em:new Date().toISOString()
   },`?id=eq.${r.id}`);
 }
@@ -866,6 +891,7 @@ async function onTabOpen(tab){
   if(tab==='s-pdvs')renderSPDVs();
   if(tab==='s-alertas')renderSAlertas();
   if(tab==='s-registos'){populateSFilters();renderSRegistos();}
+  if(tab==='s-metas'){await loadMetas();renderMetasForm();}
   if(tab==='p-historico')renderPHistorico();
 }
 
@@ -1331,6 +1357,37 @@ function renderSAlertas(){
     ?alerts.slice(0,15).map(a=>`<div class="alert-item ${a.t}"><div class="alert-icon">${a.t==='danger'?'🔴':'⚠️'}</div><div class="alert-text"><strong>${a.title}</strong>${a.msg}</div></div>`).join('')
     :'<div class="empty"><div class="empty-icon">✅</div>Sem alertas activos.</div>';
 }
+// ══ METAS ══
+let metasCache={};
+
+async function loadMetas(){
+  const data=await sbFetch('GET','metas',null,'?order=pdv.asc');
+  metasCache={};
+  if(data&&Array.isArray(data)) data.forEach(m=>metasCache[m.pdv]=m.meta);
+  return metasCache;
+}
+
+function renderMetasForm(){
+  const el=$('s-metas-form');if(!el)return;
+  el.innerHTML='<div class="grid">'+ESTABELECIMENTOS.map(e=>`
+    <div class="field">
+      <label>${e.nome} <span style="color:var(--muted);font-weight:400">(${e.regiao})</span></label>
+      <input type="number" min="0" id="meta-${e.nome.replace(/[^a-zA-Z0-9]/g,'')}"
+        value="${metasCache[e.nome]||0}" placeholder="0">
+    </div>`).join('')+'</div>';
+}
+
+async function saveMetas(){
+  const rows=ESTABELECIMENTOS.map(e=>({
+    pdv:e.nome,
+    meta:parseInt(document.getElementById('meta-'+e.nome.replace(/[^a-zA-Z0-9]/g,''))?.value)||0
+  }));
+  // Upsert all metas
+  const ok=await sbFetch('POST','metas',rows,'?on_conflict=pdv');
+  if(ok){showToast('Metas guardadas! ✅');await loadMetas();}
+  else showToast('Erro ao guardar metas.','error');
+}
+
 function populateSFilters(){
   const regs=[...new Set(ESTABELECIMENTOS.map(e=>e.regiao))];
   const pdvs=[...new Set(reports.map(r=>r.pdv))];
@@ -1371,6 +1428,7 @@ function renderSRegistos(){
 // ══ CLIENTE ══
 async function renderCliente(){
   await loadAll();
+  await loadMetas();
   const approved=reports.filter(r=>r.status==='approved');
   if(!approved.length){
     $('c-no-data').style.display='block';$('c-content').style.display='none';
@@ -1406,17 +1464,18 @@ async function renderCliente(){
   cCharts.reg=new Chart($('c-chart-reg'),{type:'bar',data:{labels:Object.keys(rT),datasets:[{data:Object.values(rT),backgroundColor:PALETTE[2],borderRadius:4}]},options:chartOpts(false)});
   $('c-top-pdv').innerHTML=sorted.map(([nome,v],i)=>{
     const obj=ESTABELECIMENTOS.find(e=>e.nome===nome);
-    const meta=30*approved.filter(r=>r.pdv===nome).length;
-    const pct=Math.min(100,Math.round((v/Math.max(1,meta))*100));
+    const meta=metasCache[nome]||0;
+    const hasMeta=meta>0;
+    const pct=hasMeta?Math.min(100,Math.round((v/meta)*100)):null;
     return`<tr>
       <td style="font-weight:700;color:var(--muted);font-size:11px">${i+1}</td>
       <td><strong>${nome}</strong></td><td>${obj?.regiao||'—'}</td>
       <td><strong style="color:var(--red)">${v}</strong></td>
-      <td style="color:var(--muted)">${meta}</td>
-      <td style="min-width:110px"><div style="display:flex;align-items:center;gap:7px">
-        <div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pct}%;background:${pct>=50?PALETTE[1]:PALETTE[0]}"></div></div>
+      <td style="color:var(--muted)">${hasMeta?meta:'—'}</td>
+      <td style="min-width:110px">${hasMeta?`<div style="display:flex;align-items:center;gap:7px">
+        <div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pct}%;background:${pct>=100?PALETTE[1]:pct>=60?PALETTE[1]:PALETTE[0]}"></div></div>
         <span style="font-size:10px;font-weight:700;">${pct}%</span>
-      </div></td>
+      </div>`:'<span style="color:var(--muted);font-size:11px">Sem meta</span>'}</td>
     </tr>`;
   }).join('');
   const bTot={};BRINDES_TIPOS.forEach(b=>bTot[b]=0);
