@@ -569,6 +569,33 @@ tr:hover td{background:var(--yellow-light)}
       </div>
       <p class="section-label">Equipa Actual</p>
       <div id="s-equipa-list"><div class="empty"><div class="empty-icon">👥</div>Sem promotoras cadastradas.</div></div>
+      <p class="section-label" style="margin-top:20px">⚠️ Gestão de Dados</p>
+      <div class="card" style="border:1.5px solid var(--red-light);background:var(--red-light)">
+        <div class="card-title" style="margin-bottom:10px"><div class="icon accent">🗑</div> Limpar Dados de Teste</div>
+        <p style="font-size:12px;color:var(--ink2);margin-bottom:14px;line-height:1.6">
+          Remove check-ins e relatórios de um período específico. Útil para apagar dados introduzidos durante testes antes do lançamento real da campanha. <strong>Esta acção não pode ser revertida.</strong>
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0">
+            <label>Data Início</label>
+            <input type="date" id="limpar-data-ini">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Data Fim</label>
+            <input type="date" id="limpar-data-fim">
+          </div>
+          <div class="field" style="margin:0">
+            <label>O que apagar</label>
+            <select id="limpar-tipo">
+              <option value="tudo">Tudo (check-ins + relatórios)</option>
+              <option value="relatorios">Só relatórios</option>
+              <option value="checkins">Só check-ins</option>
+            </select>
+          </div>
+          <button class="btn-accent" onclick="limparDados()">🗑 Limpar Dados do Período</button>
+        </div>
+      </div>
+
       <p class="section-label">Check-ins de Hoje</p>
       <div id="s-checkins-hoje" class="status-bar"><div class="empty" style="padding:18px"><div class="empty-icon">📍</div>Nenhum check-in hoje.</div></div>
     </div>
@@ -694,7 +721,7 @@ tr:hover td{background:var(--yellow-light)}
 
         <!-- TABELA DETALHADA POR PDV -->
         <div class="card">
-          <div class="card-title"><div class="icon accent">🏪</div> Resultados por Ponto de Venda</div>
+          <div class="card-title"><div class="icon accent">🏪</div> Pontos de Venda</div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -703,10 +730,8 @@ tr:hover td{background:var(--yellow-light)}
                   <th>Ponto de Venda</th>
                   <th>Região</th>
                   <th>Vendas</th>
-                  <th>Meta Semanal</th>
-                  <th>Prog. Semanal</th>
-                  <th>Meta Mensal</th>
-                  <th>Prog. Mensal</th>
+                  <th>Meta Semanal (200 SP)</th>
+                  <th>Meta Mensal (800 SP)</th>
                   <th>Abordagens</th>
                   <th>Conv. %</th>
                 </tr>
@@ -1681,8 +1706,13 @@ function renderClienteTabela(){
   const META_SEMANAL=200;
   const META_MENSAL=800;
 
-  // Aggregate by PDV
+  // Aggregate by PDV — include ALL estabelecimentos even with 0 sales
   const pdvMap={};
+  // Start with all known PDVs
+  ESTABELECIMENTOS.forEach(e=>{
+    pdvMap[e.nome]={regiao:e.regiao,vendas:0,interacoes:0,amostragens:0};
+  });
+  // Add actual data
   filtered.forEach(r=>{
     if(!pdvMap[r.pdv]) pdvMap[r.pdv]={regiao:r.regiao,vendas:0,interacoes:0,amostragens:0};
     pdvMap[r.pdv].vendas+=r.vendas;
@@ -1728,21 +1758,21 @@ function renderClienteTabela(){
       <td><strong>${nome}</strong></td>
       <td><span class="badge neutral">${p.regiao}</span></td>
       <td><strong style="color:var(--red)">${p.vendas}</strong></td>
-      <td style="color:var(--muted);font-size:11px">${metaS} SP</td>
-      <td style="min-width:120px">
+      <td style="min-width:150px">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:3px">Semanal · meta ${metaS} SP</div>
         <div style="display:flex;align-items:center;gap:6px">
           <div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pctSem}%;background:${colSem}"></div></div>
-          <span style="font-size:10px;font-weight:700;color:${colSem};min-width:28px">${pctSem}%</span>
+          <span style="font-size:10px;font-weight:700;color:${colSem};min-width:32px">${vendSem} SP</span>
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${vendSem} / ${metaS} Six Pack</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:1px">${pctSem}% da meta</div>
       </td>
-      <td style="color:var(--muted);font-size:11px">${metaM} SP</td>
-      <td style="min-width:120px">
+      <td style="min-width:150px">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:3px">Mensal · meta ${metaM} SP</div>
         <div style="display:flex;align-items:center;gap:6px">
           <div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pctMes}%;background:${colMes}"></div></div>
-          <span style="font-size:10px;font-weight:700;color:${colMes};min-width:28px">${pctMes}%</span>
+          <span style="font-size:10px;font-weight:700;color:${colMes};min-width:32px">${vendMes} SP</span>
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${vendMes} / ${metaM} Six Pack</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:1px">${pctMes}% da meta</div>
       </td>
       <td>${p.interacoes}</td>
       <td><span class="badge ${conv>=30?'ok':conv>=15?'warn':'danger'}">${conv}%</span></td>
@@ -1791,6 +1821,76 @@ function renderClienteCharts(data){
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--ink)">${data.length}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Activações Validadas</div></div>
   `;
 }
+// ══ LIMPAR DADOS ══
+async function limparDados(){
+  const ini=$('limpar-data-ini').value;
+  const fim=$('limpar-data-fim').value;
+  const tipo=$('limpar-tipo').value;
+
+  if(!ini||!fim){
+    showPopup('error','Datas em falta','Indica a data de início e de fim do período a limpar.');
+    return;
+  }
+  if(ini>fim){
+    showPopup('error','Datas inválidas','A data de início deve ser anterior à data de fim.');
+    return;
+  }
+
+  const confirm1=confirm(`Tens a certeza que queres apagar ${tipo==='tudo'?'check-ins e relatórios':tipo} entre ${ini} e ${fim}?
+
+Esta acção NÃO pode ser revertida.`);
+  if(!confirm1) return;
+
+  const confirm2=confirm('Confirmação final: os dados serão apagados permanentemente. Continuar?');
+  if(!confirm2) return;
+
+  let erros=0;
+  let apagados=0;
+
+  await loadAll();
+
+  // Delete relatorios in range
+  if(tipo==='tudo'||tipo==='relatorios'){
+    const toDelete=reports.filter(r=>r.data>=ini&&r.data<=fim);
+    for(const r of toDelete){
+      try{
+        const res=await fetch(`${SB_URL}/rest/v1/relatorios?id=eq.${r.id}`,{
+          method:'DELETE',
+          headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}
+        });
+        if(res.ok||res.status===204) apagados++;
+        else erros++;
+      }catch(e){ erros++; }
+    }
+  }
+
+  // Delete checkins in range
+  if(tipo==='tudo'||tipo==='checkins'){
+    const toDelete=checkins.filter(c=>c.data>=ini&&c.data<=fim);
+    for(const c of toDelete){
+      try{
+        const res=await fetch(`${SB_URL}/rest/v1/checkins?id=eq.${c.id}`,{
+          method:'DELETE',
+          headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}
+        });
+        if(res.ok||res.status===204) apagados++;
+        else erros++;
+      }catch(e){ erros++; }
+    }
+  }
+
+  await loadAll();
+
+  if(erros===0){
+    showPopup('delete','Dados Limpos ✅',`${apagados} registo(s) apagado(s) com sucesso entre ${ini} e ${fim}.`);
+  } else {
+    showPopup('error','Limpeza Parcial',`${apagados} registo(s) apagado(s), ${erros} erro(s). Verifica as permissões no Supabase.`);
+  }
+
+  renderSEquipa();
+  renderSCheckins();
+}
+
 // ══ SETUP ══
 function populateEstabelecimentos(){
   const opts=ESTABELECIMENTOS.map(e=>`<option value="${e.nome}">${e.nome} (${e.regiao})</option>`).join('');
