@@ -557,6 +557,7 @@ tr:hover td{background:var(--yellow-light)}
       <button class="inner-tab" data-tab="s-alertas">Alertas</button>
       <button class="inner-tab" data-tab="s-registos">Registos</button>
       <button class="inner-tab" data-tab="s-metas">Metas</button>
+      <button class="inner-tab" data-tab="s-pdv-config">Lojas</button>
     </div>
     <div class="tab-content active" id="tab-s-equipa">
       <div class="card">
@@ -674,6 +675,19 @@ tr:hover td{background:var(--yellow-light)}
       </table></div></div>
     </div>
   </div>
+
+    <div class="tab-content" id="tab-s-pdv-config">
+      <div class="card">
+        <div class="card-title"><div class="icon accent">🏪</div> Gestão de Lojas</div>
+        <p class="footnote" style="margin-bottom:14px">
+          <strong>Activa</strong> — a loja aparece nos selectores das promotoras para registo de relatórios.<br>
+          <strong>Visível ao cliente</strong> — a loja e os seus dados aparecem no dashboard do cliente.
+        </p>
+        <div id="s-pdv-config-list">
+          <div class="empty"><div class="empty-icon">🏪</div>A carregar lojas…</div>
+        </div>
+      </div>
+    </div>
 
     <div class="tab-content" id="tab-s-metas">
       <div class="card">
@@ -823,7 +837,7 @@ tr:hover td{background:var(--yellow-light)}
 <script>
 // ══ CONFIG ══
 const PINS={promotora:'1234',supervisor:'5678',cliente:'0000'};
-const ESTABELECIMENTOS=[
+const ESTABELECIMENTOS_BASE=[
   {nome:"Game Maputo",regiao:"Sul"},{nome:"Shoprite Maputo",regiao:"Sul"},
   {nome:"Shoprite Matola",regiao:"Sul"},{nome:"Sabores do Mundo",regiao:"Sul"},
   {nome:"Terramar Malanga",regiao:"Sul"},{nome:"Shoprite Costa do Sol",regiao:"Sul"},
@@ -831,6 +845,9 @@ const ESTABELECIMENTOS=[
   {nome:"China Center",regiao:"Sul"},{nome:"Horizon Ivato",regiao:"Sul"},
   {nome:"Shoprite Beira",regiao:"Centro"},{nome:"Shoprite Pemba",regiao:"Norte"}
 ];
+// Loaded from Supabase — includes ativo (aparece no relatório) e visivel_cliente flags
+let ESTABELECIMENTOS=[...ESTABELECIMENTOS_BASE];
+let pdvConfig={}; // pdv nome -> {ativo, visivel_cliente}
 const SKUS=["Lata","Garrafa"];
 const BRINDES_TIPOS=["Óculos","Relógio","Meias","Abre-garrafas"];
 // Paleta sem verde: vermelho, amarelo escuro, cinzento escuro, cinzento, amarelo
@@ -1065,6 +1082,7 @@ async function onTabOpen(tab){
   if(tab==='s-alertas')renderSAlertas();
   if(tab==='s-registos'){populateSFilters();renderSRegistos();}
   if(tab==='s-metas'){await loadMetas();renderMetasForm();}
+  if(tab==='s-pdv-config'){await loadPDVConfig();renderPDVConfig();}
   if(tab==='p-historico')renderPHistorico();
 }
 
@@ -1078,7 +1096,7 @@ async function initApp(){
   $('layer-'+currentRole).classList.add('active');
   buildSkuBlocks();buildBrindesBlocks();populateEstabelecimentos();
   if(currentRole==='promotora')await initPromotoraLayer();
-  if(currentRole==='supervisor'){renderSEquipa();renderSCheckins();}
+  if(currentRole==='supervisor'){await loadPDVConfig();renderSEquipa();renderSCheckins();}
   if(currentRole==='cliente'){
     await renderCliente();
     // Auto-refresh a cada 60 segundos
@@ -1559,9 +1577,15 @@ function renderSOverview(){
       }
     });
   });
-  $('s-brindes-resumo').innerHTML=BRINDES_TIPOS.map(b=>`
-    <tr><td>🎁 ${b}</td><td>${bRec[b]}</td><td>${bOfe[b]}</td>
-    <td><span class="badge ${bDif[b]===0?'ok':bDif[b]>0?'warn':'danger'}">${bDif[b]===0?'OK':bDif[b]>0?'+'+bDif[b]:bDif[b]}</span></td></tr>`).join('');
+  $('s-brindes-resumo').innerHTML=BRINDES_TIPOS.map(b=>{
+    const rec=bRec[b];const ofe=bOfe[b];const dif=bDif[b];
+    // OK only if there's data and it balances; warn if sobram; danger if oferecidos > recebidos
+    const noData=rec===0&&ofe===0;
+    const badge=noData?'neutral':dif===0?'ok':dif>0?'warn':'danger';
+    const label=noData?'—':dif===0?'✅ OK':dif>0?`+${dif} por devolver`:`${dif} a mais oferecidos`;
+    return`<tr><td>🎁 ${b}</td><td>${rec}</td><td>${ofe}</td>
+    <td><span class="badge ${badge}">${label}</span></td></tr>`;
+  }).join('');
 }
 function renderSPDVs(){
   const m={};
@@ -1697,6 +1721,7 @@ function renderSRegistos(){
 async function renderCliente(){
   await loadAll();
   await loadMetas();
+  await loadPDVConfig();
 
   const approved=reports.filter(r=>r.status==='approved');
   if(!approved.length){
@@ -1766,10 +1791,10 @@ function renderClienteTabela(){
   const META_SEMANAL=200;
   const META_MENSAL=800;
 
-  // Aggregate by PDV — include ALL estabelecimentos even with 0 sales
+  // Aggregate by PDV — include only active+visible PDVs
   const pdvMap={};
-  // Start with all known PDVs
-  ESTABELECIMENTOS.forEach(e=>{
+  // Start with PDVs that are visible to client
+  ESTABELECIMENTOS_BASE.filter(e=>pdvConfig[e.nome]?.visivel_cliente!==false).forEach(e=>{
     pdvMap[e.nome]={regiao:e.regiao,vendas:0,interacoes:0,amostragens:0};
   });
   // Add actual data
@@ -1887,6 +1912,83 @@ function renderClienteCharts(data){
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--ink)">${data.length}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Activações Validadas</div></div>
   `;
 }
+// ══ PDV CONFIG ══
+async function loadPDVConfig(){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/pdv_config?order=nome.asc`,{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    const data=await res.json();
+    pdvConfig={};
+    if(Array.isArray(data)) data.forEach(p=>pdvConfig[p.nome]={ativo:p.ativo,visivel_cliente:p.visivel_cliente});
+  }catch(e){ console.error('loadPDVConfig',e); }
+  // Default: all active and visible if not in config
+  ESTABELECIMENTOS_BASE.forEach(e=>{
+    if(!pdvConfig[e.nome]) pdvConfig[e.nome]={ativo:true,visivel_cliente:true};
+  });
+  // Update ESTABELECIMENTOS to only include active ones for selects
+  ESTABELECIMENTOS=ESTABELECIMENTOS_BASE.filter(e=>pdvConfig[e.nome]?.ativo!==false);
+}
+
+async function savePDVConfig(nome,ativo,visivel_cliente){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/pdv_config`,{
+      method:'POST',
+      headers:{
+        'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
+      body:JSON.stringify({nome,ativo,visivel_cliente})
+    });
+    return res.ok||res.status===204;
+  }catch(e){ return false; }
+}
+
+function renderPDVConfig(){
+  const el=$('s-pdv-config-list');if(!el)return;
+  el.innerHTML=ESTABELECIMENTOS_BASE.map(e=>{
+    const cfg=pdvConfig[e.nome]||{ativo:true,visivel_cliente:true};
+    return`<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line2)">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px">${e.nome}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${e.regiao}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer">
+          <input type="checkbox" ${cfg.ativo!==false?'checked':''}
+            onchange="togglePDV('${e.nome}','ativo',this.checked)"
+            style="accent-color:var(--yellow-dark);width:15px;height:15px">
+          Activa
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer">
+          <input type="checkbox" ${cfg.visivel_cliente!==false?'checked':''}
+            onchange="togglePDV('${e.nome}','visivel_cliente',this.checked)"
+            style="accent-color:var(--red);width:15px;height:15px">
+          Visível ao cliente
+        </label>
+      </div>
+      <span class="badge ${cfg.ativo!==false?(cfg.visivel_cliente!==false?'ok':'warn'):'neutral'}">
+        ${cfg.ativo!==false?(cfg.visivel_cliente!==false?'Activa · Cliente vê':'Activa · Oculta'):'Inactiva'}
+      </span>
+    </div>`;
+  }).join('');
+}
+
+async function togglePDV(nome,campo,valor){
+  const cfg=pdvConfig[nome]||{ativo:true,visivel_cliente:true};
+  cfg[campo]=valor;
+  pdvConfig[nome]=cfg;
+  const ok=await savePDVConfig(nome,cfg.ativo!==false,cfg.visivel_cliente!==false);
+  if(ok){
+    // Refresh active PDVs list
+    ESTABELECIMENTOS=ESTABELECIMENTOS_BASE.filter(e=>pdvConfig[e.nome]?.ativo!==false);
+    showToast(nome+' actualizado.');
+    renderPDVConfig();
+    populateEstabelecimentos();
+  } else showPopup('error','Erro','Não foi possível guardar. Verifica a ligação.');
+}
+
 // ══ LIMPAR DADOS ══
 async function renderLimparLista(){
   await loadAll();
