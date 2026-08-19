@@ -472,9 +472,7 @@ tr:hover td{background:var(--yellow-light)}
           <label class="check-item"><input type="checkbox" id="ci-stock-ok"> Stock entregue no PDV</label>
         </div>
         <hr class="divider">
-        <p class="section-label">🎁 Brindes Recebidos — Entrada</p>
-        <div id="ci-brindes-in"></div>
-        <div class="field" style="margin-top:10px"><label>Observações de Entrada</label>
+        <div class="field" style="margin-top:2px"><label>Observações de Entrada</label>
           <textarea id="ci-obs-entrada" placeholder="Ex: geleira sem corrente, falta de espaço…"></textarea></div>
         <button class="btn-primary full" style="margin-top:14px" onclick="doCheckin()">✅ Registar Check-in</button>
       </div>
@@ -484,9 +482,7 @@ tr:hover td{background:var(--yellow-light)}
           <div class="field"><label>Hora de Saída Real</label><input type="time" id="co-hora-saida" readonly style="background:var(--line2);color:var(--ink2)"></div>
           <div class="field"><label>Horas Trabalhadas</label><input type="text" id="co-horas-calc" readonly></div>
         </div>
-        <p class="section-label" style="margin-top:12px">🎁 Brindes Devolvidos — Saída</p>
-        <div id="co-brindes-out"></div>
-        <div class="field" style="margin-top:10px"><label>Diferença (auto)</label><input type="text" id="co-brindes-diff" readonly></div>
+        <p class="section-label" style="margin-top:10px">
         <div class="check-grid" style="margin:10px 0 12px">
           <label class="check-item"><input type="checkbox" id="co-limpeza"> Espaço limpo na saída</label>
           <label class="check-item"><input type="checkbox" id="co-stock-dev"> Stock residual devolvido</label>
@@ -510,7 +506,14 @@ tr:hover td{background:var(--yellow-light)}
         </div>
       </div>
       <div class="card"><div class="card-title"><div class="icon">🍺</div> Stock & Preços por SKU</div><div id="sku-blocks"></div></div>
-      <div class="card"><div class="card-title"><div class="icon">🎁</div> Brindes Distribuídos no Turno</div><div id="f-brindes-turno"></div></div>
+      <div class="card">
+        <div class="card-title"><div class="icon">🎁</div> Controlo de Brindes</div>
+        <div id="brindes-simplificado"></div>
+        <div class="field" style="margin-top:12px">
+          <label>Brindes por Justificar (calculado automaticamente)</label>
+          <input type="text" id="f-brindes-diff" readonly style="background:var(--yellow-light);font-weight:700">
+        </div>
+      </div>
       <div class="card">
         <div class="card-title"><div class="icon accent">📊</div> Resultados da Activação</div>
         <div class="grid">
@@ -642,7 +645,7 @@ tr:hover td{background:var(--yellow-light)}
       </div>
       <div class="card"><div class="card-title"><div class="icon">🎁</div> Resumo de Brindes</div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Brinde</th><th>Entrada Total</th><th>Saída Total</th><th>Distribuídos</th><th>Diferença</th></tr></thead>
+          <thead><tr><th>Brinde</th><th>Recebidos no Turno</th><th>Oferecidos</th><th>Por Justificar</th></tr></thead>
           <tbody id="s-brindes-resumo"></tbody>
         </table></div></div>
     </div>
@@ -1107,34 +1110,37 @@ async function initPromotoraLayer(){
 }
 function calcHorasAuto(){
   $('co-horas-calc').value=calcHours($('ci-hora-entrada').value,$('co-hora-saida').value);
-  calcBrindesDiff();
 }
-function calcBrindesDiff(){
-  const d=[];
-  BRINDES_TIPOS.forEach(b=>{
-    const i=parseInt($('ci-br-in-'+slugB(b))?.value)||0;
-    const f=parseInt($('co-br-out-'+slugB(b))?.value)||0;
-    const r=parseInt($('f-br-'+slugB(b))?.value)||0;
-    const diff=(i-f)-r;
-    if(diff!==0)d.push(`${b}: ${diff>0?'+':'-'}${Math.abs(diff)}`);
-  });
-  $('co-brindes-diff').value=d.length?d.join(' · '):'Sem diferença';
-}
-function buildBrindesBlock(cId,prefix){
-  const el=document.getElementById(cId);if(!el)return;
+
+function buildBrindesBlocks(){
+  // Simplified: only in report — Recebidos + Oferecidos per brinde
+  const el=document.getElementById('brindes-simplificado');if(!el)return;
   el.innerHTML=BRINDES_TIPOS.map(b=>`
-    <div class="block-section" style="padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
-      <span style="font-size:13px;flex:1;font-weight:600">🎁 ${b}</span>
-      <div class="field" style="width:90px">
-        <label>Qtd.</label>
-        <input type="number" min="0" id="${prefix}${slugB(b)}" value="0" oninput="calcBrindesDiff()">
+    <div class="block-section" style="padding:11px 13px;margin-bottom:9px">
+      <div class="block-label">🎁 ${b}</div>
+      <div class="grid2">
+        <div class="field">
+          <label>Recebidos no início do turno</label>
+          <input type="number" min="0" id="f-br-rec-${slugB(b)}" value="0" oninput="calcBrindesDiffSimple()">
+        </div>
+        <div class="field">
+          <label>Oferecidos a consumidores</label>
+          <input type="number" min="0" id="f-br-ofe-${slugB(b)}" value="0" oninput="calcBrindesDiffSimple()">
+        </div>
       </div>
     </div>`).join('');
 }
-function buildBrindesBlocks(){
-  buildBrindesBlock('ci-brindes-in','ci-br-in-');
-  buildBrindesBlock('co-brindes-out','co-br-out-');
-  buildBrindesBlock('f-brindes-turno','f-br-');
+
+function calcBrindesDiffSimple(){
+  const diffs=[];
+  BRINDES_TIPOS.forEach(b=>{
+    const rec=parseInt(document.getElementById('f-br-rec-'+slugB(b))?.value)||0;
+    const ofe=parseInt(document.getElementById('f-br-ofe-'+slugB(b))?.value)||0;
+    const diff=rec-ofe;
+    if(diff!==0) diffs.push(`${b}: ${diff>0?'+'+diff:diff}`);
+  });
+  const el=document.getElementById('f-brindes-diff');
+  if(el) el.value=diffs.length?diffs.join(' · '):'✅ Sem diferença';
 }
 async function doCheckin(){
   const pId=$('ci-nome').value;if(!pId){showToast('Selecciona o teu nome.','error');return;}
@@ -1180,7 +1186,12 @@ async function submitReport(){
     sI[s]=i;sF[s]=f;pr[s]=parseFloat($('f-preco-'+s).value)||0;val[s]=$('f-validade-'+s).value||'';
     consumo+=Math.max(0,i-f);
   });
-  const bT={};BRINDES_TIPOS.forEach(b=>bT[b]=parseInt($('f-br-'+slugB(b)).value)||0);
+  const bT={};
+  BRINDES_TIPOS.forEach(b=>{
+    const rec=parseInt(document.getElementById('f-br-rec-'+slugB(b))?.value)||0;
+    const ofe=parseInt(document.getElementById('f-br-ofe-'+slugB(b))?.value)||0;
+    bT[b]={recebidos:rec,oferecidos:ofe,diferenca:rec-ofe};
+  });
   const hi=$('f-hora-inicio').value,hf=$('f-hora-fim').value;
   const rep={
     id:'r_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
@@ -1386,7 +1397,14 @@ function openModal(repId){
         <div class="field"><label>Lata Fim</label><input type="number" min="0" id="m-lata-fim" value="${r.stockFim&&r.stockFim.Lata||0}"></div>
         <div class="field"><label>Garrafa Ini</label><input type="number" min="0" id="m-garf-ini" value="${r.stockIni&&r.stockIni.Garrafa||0}"></div>
         <div class="field"><label>Garrafa Fim</label><input type="number" min="0" id="m-garf-fim" value="${r.stockFim&&r.stockFim.Garrafa||0}"></div>
-        ${BRINDES_TIPOS.map(b=>'<div class="field"><label>🎁 '+b+'</label><input type="number" min="0" id="m-br-'+b.replace(/[^a-zA-Z0-9]/g,"").toLowerCase()+'" value="'+(r.brindesTurno&&r.brindesTurno[b]||0)+'"></div>').join('')}
+        ${BRINDES_TIPOS.map(b=>{
+          const slug=b.replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
+          const bt=r.brindesTurno&&r.brindesTurno[b];
+          const rec=bt&&typeof bt==='object'?bt.recebidos||0:0;
+          const ofe=bt&&typeof bt==='object'?bt.oferecidos||0:(typeof bt==='number'?bt:0);
+          return '<div class="field"><label>🎁 '+b+' Recebidos</label><input type="number" min="0" id="m-br-rec-'+slug+'" value="'+rec+'"></div>'+
+                 '<div class="field"><label>🎁 '+b+' Oferecidos</label><input type="number" min="0" id="m-br-ofe-'+slug+'" value="'+ofe+'"></div>';
+        }).join('')}
         <div class="field"><label>Concorrência</label>
           <select id="m-concorrencia">
             <option value="" ${!r.concorrencia?'selected':''}>—</option>
@@ -1431,7 +1449,12 @@ async function saveModal(newStatus){
   r.consumoTotal=Math.max(0,r.stockIni.Lata-r.stockFim.Lata)+Math.max(0,r.stockIni.Garrafa-r.stockFim.Garrafa);
   // Brindes
   if(!r.brindesTurno)r.brindesTurno={};
-  BRINDES_TIPOS.forEach(b=>{ r.brindesTurno[b]=parseInt(document.getElementById('m-br-'+b.replace(/[^a-zA-Z0-9]/g,'').toLowerCase())?.value)||0; });
+  BRINDES_TIPOS.forEach(b=>{
+    const slug=b.replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
+    const rec=parseInt(document.getElementById('m-br-rec-'+slug)?.value)||0;
+    const ofe=parseInt(document.getElementById('m-br-ofe-'+slug)?.value)||0;
+    r.brindesTurno[b]={recebidos:rec,oferecidos:ofe,diferenca:rec-ofe};
+  });
   r.status=newStatus==='rejected'?'rejected':'approved';
   await updateRelatorio(r);
   await loadAll();
@@ -1521,16 +1544,24 @@ function renderSOverview(){
     {label:'Vendas',data:pN.map(p=>pM[p].v),backgroundColor:PALETTE[0],borderRadius:3}
   ]},options:{responsive:true,plugins:{legend:{position:'top',labels:{font:{family:'Inter',size:11}}}},scales:{x:{ticks:{font:{family:'Inter',size:10}},grid:{display:false}},y:{ticks:{font:{family:'Inter',size:10}},grid:{color:'#F0EDE6'}}}}});
   const bIn={},bOut={},bRel={};BRINDES_TIPOS.forEach(b=>{bIn[b]=0;bOut[b]=0;bRel[b]=0;});
-  checkins.forEach(ci=>{
-    if(ci.brindesIn)BRINDES_TIPOS.forEach(b=>bIn[b]+=(ci.brindesIn[b]||0));
-    if(ci.checkout?.brindesOut)BRINDES_TIPOS.forEach(b=>bOut[b]+=(ci.checkout.brindesOut[b]||0));
+  // New simplified brindes: recebidos + oferecidos per report
+  const bRec={},bOfe={},bDif={};
+  BRINDES_TIPOS.forEach(b=>{bRec[b]=0;bOfe[b]=0;bDif[b]=0;});
+  reports.forEach(r=>{
+    if(r.brindesTurno) BRINDES_TIPOS.forEach(b=>{
+      const bt=r.brindesTurno[b];
+      if(bt&&typeof bt==='object'){
+        bRec[b]+=(bt.recebidos||0);
+        bOfe[b]+=(bt.oferecidos||0);
+        bDif[b]+=(bt.diferenca||0);
+      } else if(typeof bt==='number'){
+        bOfe[b]+=bt; // legacy
+      }
+    });
   });
-  reports.forEach(r=>{if(r.brindesTurno)BRINDES_TIPOS.forEach(b=>bRel[b]+=(r.brindesTurno[b]||0));});
-  $('s-brindes-resumo').innerHTML=BRINDES_TIPOS.map(b=>{
-    const d=(bIn[b]-bOut[b])-bRel[b];
-    return`<tr><td>🎁 ${b}</td><td>${bIn[b]}</td><td>${bOut[b]}</td><td>${bRel[b]}</td>
-    <td><span class="badge ${d===0?'ok':'danger'}">${d===0?'OK':d>0?'+'+d:d}</span></td></tr>`;
-  }).join('');
+  $('s-brindes-resumo').innerHTML=BRINDES_TIPOS.map(b=>`
+    <tr><td>🎁 ${b}</td><td>${bRec[b]}</td><td>${bOfe[b]}</td>
+    <td><span class="badge ${bDif[b]===0?'ok':bDif[b]>0?'warn':'danger'}">${bDif[b]===0?'OK':bDif[b]>0?'+'+bDif[b]:bDif[b]}</span></td></tr>`).join('');
 }
 function renderSPDVs(){
   const m={};
@@ -1558,10 +1589,12 @@ function renderSAlertas(){
   reports.filter(r=>r.interacoes>10&&(r.vendas/r.interacoes)<0.08).forEach(r=>
     alerts.push({t:'danger',title:'Conversão muito baixa',msg:`${r.promotora} — ${r.pdv} (${r.data}): ${r.vendas}/${r.interacoes}.`}));
   BRINDES_TIPOS.forEach(b=>{
-    const bI=checkins.reduce((s,c)=>s+(c.brindesIn?.[b]||0),0);
-    const bO=checkins.reduce((s,c)=>s+(c.checkout?.brindesOut?.[b]||0),0);
-    const bR=reports.reduce((s,r)=>s+(r.brindesTurno?.[b]||0),0);
-    if(bI>0&&(bI-bO)!==bR)alerts.push({t:'danger',title:'Diferença de brindes',msg:`${b}: entrada ${bI}, saída ${bO}, relatórios ${bR}.`});
+    const total=reports.reduce((s,r)=>{
+      const bt=r.brindesTurno?.[b];
+      if(bt&&typeof bt==='object') return s+(bt.diferenca||0);
+      return s;
+    },0);
+    if(total<0) alerts.push({t:'warn',title:'Mais brindes oferecidos do que recebidos',msg:`${b}: diferença de ${total}.`});
   });
   $('s-alertas').innerHTML=alerts.length
     ?alerts.slice(0,15).map(a=>`<div class="alert-item ${a.t}"><div class="alert-icon">${a.t==='danger'?'🔴':'⚠️'}</div><div class="alert-text"><strong>${a.title}</strong>${a.msg}</div></div>`).join('')
@@ -1831,7 +1864,13 @@ function renderClienteCharts(data){
 
   // Brindes
   const bTot={};BRINDES_TIPOS.forEach(b=>bTot[b]=0);
-  data.forEach(r=>{if(r.brindesTurno)BRINDES_TIPOS.forEach(b=>bTot[b]+=(r.brindesTurno[b]||0));});
+  data.forEach(r=>{
+    if(r.brindesTurno) BRINDES_TIPOS.forEach(b=>{
+      const bt=r.brindesTurno[b];
+      if(bt&&typeof bt==='object') bTot[b]+=(bt.oferecidos||0);
+      else if(typeof bt==='number') bTot[b]+=bt;
+    });
+  });
   $('c-brindes').innerHTML=BRINDES_TIPOS.map(b=>`<tr><td>🎁 ${b}</td><td><strong>${bTot[b]}</strong></td></tr>`).join('');
 
   // Resumo exec
