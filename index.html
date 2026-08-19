@@ -640,56 +640,109 @@ tr:hover td{background:var(--yellow-light)}
       <div class="client-hero-sub" id="c-periodo">A carregar…</div>
       <div class="client-kpi-row" id="c-hero-kpis"></div>
     </div>
+
     <div style="padding:0 14px 20px">
+      <!-- METAS CAMPANHA -->
+      <div class="card">
+        <div class="card-title"><div class="icon accent">🎯</div> Metas da Campanha — Six Pack TXILAR</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
+          <div style="background:var(--yellow-light);border:1.5px solid var(--yellow-dark);border-radius:10px;padding:16px;text-align:center">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Meta Semanal</div>
+            <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1">200</div>
+            <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-top:4px">Six Pack / semana</div>
+          </div>
+          <div style="background:var(--red-light);border:1.5px solid rgba(228,0,43,0.2);border-radius:10px;padding:16px;text-align:center">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Meta Mensal</div>
+            <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1">800</div>
+            <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-top:4px">Six Pack / mês</div>
+          </div>
+        </div>
+        <p style="font-size:11px;color:var(--muted);line-height:1.5"><strong>Six Pack TXILAR</strong> = embalagem de 6 unidades · Metas para a campanha de activação em supermercados</p>
+      </div>
+
       <div id="c-no-data" style="display:none" class="card">
         <div class="empty"><div class="empty-icon">⏳</div>Sem dados validados pelo supervisor ainda.</div>
       </div>
+
       <div id="c-content">
+        <!-- FILTROS -->
+        <div class="card" style="padding:14px 16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="field" style="margin:0">
+              <label>Região</label>
+              <select id="c-fil-reg" onchange="renderClienteTabela()">
+                <option value="">Todas</option>
+                <option>Sul</option><option>Centro</option><option>Norte</option>
+              </select>
+            </div>
+            <div class="field" style="margin:0">
+              <label>Ponto de Venda</label>
+              <select id="c-fil-pdv" onchange="renderClienteTabela()">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="field" style="margin:0">
+              <label>Período</label>
+              <select id="c-fil-periodo" onchange="renderClienteTabela()">
+                <option value="semana">Esta Semana</option>
+                <option value="mes">Este Mês</option>
+                <option value="tudo">Toda a Campanha</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABELA DETALHADA POR PDV -->
+        <div class="card">
+          <div class="card-title"><div class="icon accent">🏪</div> Resultados por Ponto de Venda</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Ponto de Venda</th>
+                  <th>Região</th>
+                  <th>Vendas</th>
+                  <th>Meta Semanal</th>
+                  <th>Prog. Semanal</th>
+                  <th>Meta Mensal</th>
+                  <th>Prog. Mensal</th>
+                  <th>Abordagens</th>
+                  <th>Conv. %</th>
+                </tr>
+              </thead>
+              <tbody id="c-pdv-table"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- GRÁFICOS -->
         <div class="charts-grid">
-          <div class="chart-box"><div class="chart-title">Vendas por Ponto de Venda</div><canvas id="c-chart-pdv"></canvas></div>
+          <div class="chart-box"><div class="chart-title">Vendas por PDV</div><canvas id="c-chart-pdv"></canvas></div>
           <div class="chart-box"><div class="chart-title">Tendência de Vendas</div><canvas id="c-chart-trend"></canvas></div>
         </div>
-        <div class="card"><div class="card-title"><div class="icon accent">🏆</div> Top Pontos de Venda</div>
-          <div class="table-wrap"><table>
-            <thead><tr><th>#</th><th>PDV</th><th>Região</th><th>Vendas</th><th>Meta</th><th>Progresso</th></tr></thead>
-            <tbody id="c-top-pdv"></tbody>
-          </table></div></div>
         <div class="charts-grid">
           <div class="chart-box"><div class="chart-title">Mix SKU — Lata vs Garrafa</div><canvas id="c-chart-sku"></canvas></div>
           <div class="chart-box"><div class="chart-title">Activações por Região</div><canvas id="c-chart-reg"></canvas></div>
         </div>
+
+        <!-- BRINDES -->
         <div class="card"><div class="card-title"><div class="icon">🎁</div> Brindes Distribuídos</div>
           <div class="table-wrap"><table>
             <thead><tr><th>Brinde</th><th>Quantidade</th></tr></thead>
             <tbody id="c-brindes"></tbody>
           </table></div></div>
-        <div class="card">
-          <div class="card-title"><div class="icon accent">🎯</div> Metas da Campanha — Six Pack TXILAR</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">
-            <div style="background:var(--yellow-light);border:1.5px solid var(--yellow-dark);border-radius:10px;padding:16px;text-align:center">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Meta Semanal</div>
-              <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1">200</div>
-              <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-top:4px">Six Pack vendidos / semana</div>
-            </div>
-            <div style="background:var(--red-light);border:1.5px solid rgba(228,0,43,0.2);border-radius:10px;padding:16px;text-align:center">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Meta Mensal</div>
-              <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1">800</div>
-              <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-top:4px">Six Pack vendidos / mês</div>
-            </div>
-          </div>
-          <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">
-            <strong>Six Pack TXILAR</strong> = embalagem de 6 unidades. Metas definidas para a campanha de activação em supermercados · ACTIVA360 · IKIGAI360
-          </p>
-        </div>
+
+        <!-- RESUMO EXEC -->
         <div class="card"><div class="card-title"><div class="icon accent">📈</div> Resumo Executivo</div>
           <div id="c-resumo" class="grid" style="gap:14px"></div></div>
+
         <p class="footnote" style="text-align:center;padding-bottom:6px">
-          Dados validados pelo supervisor · Plataforma <strong>ACTIVA360</strong> · <strong>TXILAR</strong> · <strong>IKIGAI360</strong>
+          Apenas dados validados pelo supervisor · Plataforma <strong>ACTIVA360</strong> · <strong>TXILAR</strong> · <strong>IKIGAI360</strong>
         </p>
       </div>
     </div>
   </div>
-</div>
 
 <!-- MODAL -->
 <div class="modal-overlay" id="modal-overlay">
@@ -1559,70 +1612,186 @@ function renderSRegistos(){
 async function renderCliente(){
   await loadAll();
   await loadMetas();
+
   const approved=reports.filter(r=>r.status==='approved');
   if(!approved.length){
-    $('c-no-data').style.display='block';$('c-content').style.display='none';
+    $('c-no-data').style.display='block';
+    $('c-content').style.display='none';
     $('c-periodo').textContent='Sem dados validados';
     $('c-hero-kpis').innerHTML='<div style="opacity:0.65;font-size:12px">Os dados aparecem após validação pelo supervisor.</div>';
     return;
   }
-  $('c-no-data').style.display='none';$('c-content').style.display='block';
+  $('c-no-data').style.display='none';
+  $('c-content').style.display='block';
+
+  // Populate PDV filter
+  const pdvs=[...new Set(approved.map(r=>r.pdv))].sort();
+  $('c-fil-pdv').innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
+
   const datas=approved.map(r=>r.data).sort();
-  $('c-periodo').textContent=`Campanha: ${datas[0]} → ${datas[datas.length-1]}· ${approved.length} turnos validados`;
+  $('c-periodo').textContent=`Campanha: ${datas[0]} → ${datas[datas.length-1]} · ${approved.length} turnos validados`;
+
   const tV=approved.reduce((s,r)=>s+r.vendas,0);
   const tI=approved.reduce((s,r)=>s+r.interacoes,0);
   const tA=approved.reduce((s,r)=>s+r.amostragens,0);
   const conv=tI?((tV/tI)*100).toFixed(1):'0.0';
   $('c-hero-kpis').innerHTML=`
     <div class="client-kpi"><div class="client-kpi-val">${tV}</div><div class="client-kpi-lbl">Vendas Totais</div></div>
-    <div class="client-kpi"><div class="client-kpi-val">${tI.toLocaleString()}</div><div class="client-kpi-lbl">Consumidores Abordados</div></div>
-    <div class="client-kpi"><div class="client-kpi-val">${tA}</div><div class="client-kpi-lbl">Abordagens Feitas</div></div>
+    <div class="client-kpi"><div class="client-kpi-val">${tI.toLocaleString()}</div><div class="client-kpi-lbl">Abordagens</div></div>
+    <div class="client-kpi"><div class="client-kpi-val">${tA}</div><div class="client-kpi-lbl">Six Pack Amostrados</div></div>
     <div class="client-kpi"><div class="client-kpi-val">${conv}%</div><div class="client-kpi-lbl">Taxa de Conversão</div></div>
   `;
-  destroyCharts(cCharts);
-  const pdvT={};approved.forEach(r=>pdvT[r.pdv]=(pdvT[r.pdv]||0)+r.vendas);
-  const sorted=Object.entries(pdvT).sort((a,b)=>b[1]-a[1]);
-  const pdvL=sorted.map(e=>e[0]).slice(0,7);
-  cCharts.pdv=new Chart($('c-chart-pdv'),{type:'bar',data:{labels:pdvL,datasets:[{data:pdvL.map(l=>pdvT[l]),backgroundColor:PALETTE[0],borderRadius:4}]},options:chartOpts(true)});
-  const dT={};approved.forEach(r=>dT[r.data]=(dT[r.data]||0)+r.vendas);
-  const dates=Object.keys(dT).sort();
-  cCharts.trend=new Chart($('c-chart-trend'),{type:'line',data:{labels:dates,datasets:[{data:dates.map(d=>dT[d]),borderColor:PALETTE[1],backgroundColor:'rgba(224,172,0,0.12)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:PALETTE[1]}]},options:chartOpts(false)});
-  const skuT={Lata:0,Garrafa:0};
-  approved.forEach(r=>SKUS.forEach(s=>skuT[s]+=Math.max(0,(r.stockIni?.[s]||0)-(r.stockFim?.[s]||0))));
-  cCharts.sku=new Chart($('c-chart-sku'),{type:'doughnut',data:{labels:['Lata','Garrafa'],datasets:[{data:[skuT.Lata,skuT.Garrafa],backgroundColor:[PALETTE[0],PALETTE[1]]}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{family:'Inter'}}}}}});
-  const rT={};approved.forEach(r=>rT[r.regiao]=(rT[r.regiao]||0)+r.vendas);
-  cCharts.reg=new Chart($('c-chart-reg'),{type:'bar',data:{labels:Object.keys(rT),datasets:[{data:Object.values(rT),backgroundColor:PALETTE[2],borderRadius:4}]},options:chartOpts(false)});
-  $('c-top-pdv').innerHTML=sorted.map(([nome,v],i)=>{
-    const obj=ESTABELECIMENTOS.find(e=>e.nome===nome);
-    const meta=metasCache[nome]||0;
-    const hasMeta=meta>0;
-    const pct=hasMeta?Math.min(100,Math.round((v/meta)*100)):null;
+
+  renderClienteTabela();
+  renderClienteCharts(approved);
+}
+
+function getFilteredApproved(){
+  const reg=$('c-fil-reg')?.value||'';
+  const pdv=$('c-fil-pdv')?.value||'';
+  const periodo=$('c-fil-periodo')?.value||'tudo';
+  const today=new Date();
+
+  return reports.filter(r=>{
+    if(r.status!=='approved') return false;
+    if(reg&&r.regiao!==reg) return false;
+    if(pdv&&r.pdv!==pdv) return false;
+    if(periodo==='semana'){
+      const rDate=new Date(r.data);
+      const dayOfWeek=today.getDay()||7;
+      const monday=new Date(today);
+      monday.setDate(today.getDate()-dayOfWeek+1);
+      monday.setHours(0,0,0,0);
+      if(rDate<monday) return false;
+    }
+    if(periodo==='mes'){
+      const rDate=new Date(r.data);
+      if(rDate.getMonth()!==today.getMonth()||rDate.getFullYear()!==today.getFullYear()) return false;
+    }
+    return true;
+  });
+}
+
+function renderClienteTabela(){
+  const filtered=getFilteredApproved();
+  const periodo=$('c-fil-periodo')?.value||'tudo';
+
+  // Meta semanal = 200 six pack, mensal = 800 six pack (per PDV)
+  // For period filter: show relevant meta
+  const META_SEMANAL=200;
+  const META_MENSAL=800;
+
+  // Aggregate by PDV
+  const pdvMap={};
+  filtered.forEach(r=>{
+    if(!pdvMap[r.pdv]) pdvMap[r.pdv]={regiao:r.regiao,vendas:0,interacoes:0,amostragens:0};
+    pdvMap[r.pdv].vendas+=r.vendas;
+    pdvMap[r.pdv].interacoes+=r.interacoes;
+    pdvMap[r.pdv].amostragens+=r.amostragens;
+  });
+
+  // Also get weekly/monthly totals per PDV regardless of filter for progress bars
+  const allApproved=reports.filter(r=>r.status==='approved');
+  const today=new Date();
+  const dayOfWeek=today.getDay()||7;
+  const monday=new Date(today);monday.setDate(today.getDate()-dayOfWeek+1);monday.setHours(0,0,0,0);
+
+  const weekMap={};const monthMap={};
+  allApproved.forEach(r=>{
+    const rDate=new Date(r.data);
+    if(!weekMap[r.pdv])weekMap[r.pdv]=0;
+    if(!monthMap[r.pdv])monthMap[r.pdv]=0;
+    if(rDate>=monday) weekMap[r.pdv]+=r.vendas;
+    if(rDate.getMonth()===today.getMonth()&&rDate.getFullYear()===today.getFullYear()) monthMap[r.pdv]+=r.vendas;
+  });
+
+  const sorted=Object.entries(pdvMap).sort((a,b)=>b[1].vendas-a[1].vendas);
+
+  if(!sorted.length){
+    $('c-pdv-table').innerHTML='<tr><td colspan="10" class="empty">Sem dados para os filtros seleccionados.</td></tr>';
+    return;
+  }
+
+  const metaS=META_SEMANAL;
+  const metaM=META_MENSAL;
+
+  $('c-pdv-table').innerHTML=sorted.map(([nome,p],i)=>{
+    const conv=p.interacoes?((p.vendas/p.interacoes)*100).toFixed(0):0;
+    const vendSem=weekMap[nome]||0;
+    const vendMes=monthMap[nome]||0;
+    const pctSem=Math.min(100,Math.round((vendSem/metaS)*100));
+    const pctMes=Math.min(100,Math.round((vendMes/metaM)*100));
+    const colSem=pctSem>=100?'var(--ok)':pctSem>=60?'var(--warn)':'var(--red)';
+    const colMes=pctMes>=100?'var(--ok)':pctMes>=60?'var(--warn)':'var(--red)';
     return`<tr>
       <td style="font-weight:700;color:var(--muted);font-size:11px">${i+1}</td>
-      <td><strong>${nome}</strong></td><td>${obj?.regiao||'—'}</td>
-      <td><strong style="color:var(--red)">${v}</strong></td>
-      <td style="color:var(--muted)">${hasMeta?meta:'—'}</td>
-      <td style="min-width:110px">${hasMeta?`<div style="display:flex;align-items:center;gap:7px">
-        <div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pct}%;background:${pct>=100?PALETTE[1]:pct>=60?PALETTE[1]:PALETTE[0]}"></div></div>
-        <span style="font-size:10px;font-weight:700;">${pct}%</span>
-      </div>`:'<span style="color:var(--muted);font-size:11px">Sem meta</span>'}</td>
+      <td><strong>${nome}</strong></td>
+      <td><span class="badge neutral">${p.regiao}</span></td>
+      <td><strong style="color:var(--red)">${p.vendas}</strong></td>
+      <td style="color:var(--muted);font-size:11px">${metaS} SP</td>
+      <td style="min-width:120px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pctSem}%;background:${colSem}"></div></div>
+          <span style="font-size:10px;font-weight:700;color:${colSem};min-width:28px">${pctSem}%</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${vendSem} / ${metaS} Six Pack</div>
+      </td>
+      <td style="color:var(--muted);font-size:11px">${metaM} SP</td>
+      <td style="min-width:120px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pctMes}%;background:${colMes}"></div></div>
+          <span style="font-size:10px;font-weight:700;color:${colMes};min-width:28px">${pctMes}%</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${vendMes} / ${metaM} Six Pack</div>
+      </td>
+      <td>${p.interacoes}</td>
+      <td><span class="badge ${conv>=30?'ok':conv>=15?'warn':'danger'}">${conv}%</span></td>
     </tr>`;
   }).join('');
+
+  renderClienteCharts(filtered);
+}
+
+function renderClienteCharts(data){
+  destroyCharts(cCharts);
+  if(!data.length) return;
+
+  const pdvT={};data.forEach(r=>pdvT[r.pdv]=(pdvT[r.pdv]||0)+r.vendas);
+  const sorted=Object.entries(pdvT).sort((a,b)=>b[1]-a[1]);
+  const pdvL=sorted.map(e=>e[0]).slice(0,8);
+  cCharts.pdv=new Chart($('c-chart-pdv'),{type:'bar',data:{labels:pdvL,datasets:[{data:pdvL.map(l=>pdvT[l]),backgroundColor:PALETTE[0],borderRadius:4}]},options:chartOpts(true)});
+
+  const dT={};data.forEach(r=>dT[r.data]=(dT[r.data]||0)+r.vendas);
+  const dates=Object.keys(dT).sort();
+  cCharts.trend=new Chart($('c-chart-trend'),{type:'line',data:{labels:dates,datasets:[{data:dates.map(d=>dT[d]),borderColor:PALETTE[1],backgroundColor:'rgba(224,172,0,0.12)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:PALETTE[1]}]},options:chartOpts(false)});
+
+  const skuT={Lata:0,Garrafa:0};
+  data.forEach(r=>SKUS.forEach(s=>skuT[s]+=Math.max(0,(r.stockIni?.[s]||0)-(r.stockFim?.[s]||0))));
+  cCharts.sku=new Chart($('c-chart-sku'),{type:'doughnut',data:{labels:['Lata','Garrafa'],datasets:[{data:[skuT.Lata,skuT.Garrafa],backgroundColor:[PALETTE[0],PALETTE[1]]}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{family:'Inter'}}}}}});
+
+  const rT={};data.forEach(r=>rT[r.regiao]=(rT[r.regiao]||0)+r.vendas);
+  cCharts.reg=new Chart($('c-chart-reg'),{type:'bar',data:{labels:Object.keys(rT),datasets:[{data:Object.values(rT),backgroundColor:PALETTE[2],borderRadius:4}]},options:chartOpts(false)});
+
+  // Brindes
   const bTot={};BRINDES_TIPOS.forEach(b=>bTot[b]=0);
-  approved.forEach(r=>{if(r.brindesTurno)BRINDES_TIPOS.forEach(b=>bTot[b]+=(r.brindesTurno[b]||0));});
+  data.forEach(r=>{if(r.brindesTurno)BRINDES_TIPOS.forEach(b=>bTot[b]+=(r.brindesTurno[b]||0));});
   $('c-brindes').innerHTML=BRINDES_TIPOS.map(b=>`<tr><td>🎁 ${b}</td><td><strong>${bTot[b]}</strong></td></tr>`).join('');
-  const pdvsA=[...new Set(approved.map(r=>r.pdv))].length;
-  const promos=[...new Set(approved.map(r=>r.promotora))].length;
-  const conc=approved.filter(r=>r.concorrencia==='Sim').length;
-  const consumo=approved.reduce((s,r)=>s+(r.consumoTotal||0),0);
+
+  // Resumo exec
+  const pdvsA=[...new Set(data.map(r=>r.pdv))].length;
+  const promos=[...new Set(data.map(r=>r.promotora))].length;
+  const conc=data.filter(r=>r.concorrencia==='Sim').length;
+  const consumo=data.reduce((s,r)=>s+(r.consumoTotal||0),0);
+  const tV=data.reduce((s,r)=>s+r.vendas,0);
   $('c-resumo').innerHTML=`
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${pdvsA}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">PDVs Activados</div></div>
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${promos}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Promotoras</div></div>
-    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--warn)">${consumo}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Abordagens Feitas</div></div>
+    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--warn)">${consumo}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Unid. Amostradas</div></div>
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${conc}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Ocorrências Concorrência</div></div>
-    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--ink)">${approved.length}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Activações Validadas</div></div>
+    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--ink)">${data.length}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Activações Validadas</div></div>
   `;
 }
+// ══ SETUP ══
 function populateEstabelecimentos(){
   const opts=ESTABELECIMENTOS.map(e=>`<option value="${e.nome}">${e.nome} (${e.regiao})</option>`).join('');
   const el=$('sup-new-pdv');if(el)el.innerHTML=opts;
