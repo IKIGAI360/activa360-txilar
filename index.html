@@ -570,29 +570,56 @@ tr:hover td{background:var(--yellow-light)}
       <p class="section-label">Equipa Actual</p>
       <div id="s-equipa-list"><div class="empty"><div class="empty-icon">👥</div>Sem promotoras cadastradas.</div></div>
       <p class="section-label" style="margin-top:20px">⚠️ Gestão de Dados</p>
-      <div class="card" style="border:1.5px solid var(--red-light);background:var(--red-light)">
-        <div class="card-title" style="margin-bottom:10px"><div class="icon accent">🗑</div> Limpar Dados de Teste</div>
-        <p style="font-size:12px;color:var(--ink2);margin-bottom:14px;line-height:1.6">
-          Remove check-ins e relatórios de um período específico. Útil para apagar dados introduzidos durante testes antes do lançamento real da campanha. <strong>Esta acção não pode ser revertida.</strong>
+      <div class="card" style="border:1.5px solid rgba(228,0,43,0.2)">
+        <div class="card-title" style="margin-bottom:10px"><div class="icon accent">🗑</div> Apagar Registos</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Selecciona individualmente os registos a apagar. <strong>Esta acção não pode ser revertida.</strong>
         </p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+
+        <!-- FILTROS -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end">
           <div class="field" style="margin:0">
-            <label>Data Início</label>
-            <input type="date" id="limpar-data-ini">
-          </div>
-          <div class="field" style="margin:0">
-            <label>Data Fim</label>
-            <input type="date" id="limpar-data-fim">
-          </div>
-          <div class="field" style="margin:0">
-            <label>O que apagar</label>
-            <select id="limpar-tipo">
-              <option value="tudo">Tudo (check-ins + relatórios)</option>
-              <option value="relatorios">Só relatórios</option>
-              <option value="checkins">Só check-ins</option>
+            <label>Tipo</label>
+            <select id="limpar-tipo" onchange="renderLimparLista()">
+              <option value="relatorios">Relatórios</option>
+              <option value="checkins">Check-ins</option>
             </select>
           </div>
-          <button class="btn-accent" onclick="limparDados()">🗑 Limpar Dados do Período</button>
+          <div class="field" style="margin:0">
+            <label>Promotora</label>
+            <select id="limpar-promo" onchange="renderLimparLista()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0">
+            <label>PDV</label>
+            <select id="limpar-pdv" onchange="renderLimparLista()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0">
+            <label>De</label>
+            <input type="date" id="limpar-di" onchange="renderLimparLista()">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Até</label>
+            <input type="date" id="limpar-df" onchange="renderLimparLista()">
+          </div>
+          <button class="btn-sm" onclick="renderLimparLista()">🔍 Filtrar</button>
+        </div>
+
+        <!-- SELECTALL + DELETE -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <label class="check-item" style="font-weight:700;font-size:12px">
+            <input type="checkbox" id="limpar-all" onchange="toggleSelectAll()"> Seleccionar tudo
+          </label>
+          <button class="btn-accent" onclick="apagarSeleccionados()" style="padding:7px 16px;font-size:12px">🗑 Apagar Seleccionados</button>
+          <span id="limpar-count" style="font-size:11px;color:var(--muted)"></span>
+        </div>
+
+        <!-- LISTA -->
+        <div id="limpar-lista" style="max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:8px">
+          <div class="empty" style="padding:20px"><div class="empty-icon">🔍</div>Aplica um filtro para ver os registos.</div>
         </div>
       </div>
 
@@ -1822,74 +1849,97 @@ function renderClienteCharts(data){
   `;
 }
 // ══ LIMPAR DADOS ══
-async function limparDados(){
-  const ini=$('limpar-data-ini').value;
-  const fim=$('limpar-data-fim').value;
+async function renderLimparLista(){
+  await loadAll();
+  const promos=[...new Set([...reports.map(r=>r.promotora),...checkins.map(c=>c.nome)])].sort();
+  const pdvs=[...new Set([...reports.map(r=>r.pdv),...checkins.map(c=>c.pdv)])].sort();
+  $('limpar-promo').innerHTML='<option value="">Todas</option>'+promos.map(p=>`<option>${p}</option>`).join('');
+  $('limpar-pdv').innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
   const tipo=$('limpar-tipo').value;
-
-  if(!ini||!fim){
-    showPopup('error','Datas em falta','Indica a data de início e de fim do período a limpar.');
-    return;
-  }
-  if(ini>fim){
-    showPopup('error','Datas inválidas','A data de início deve ser anterior à data de fim.');
-    return;
-  }
-
-  const confirm1=confirm(`Tens a certeza que queres apagar ${tipo==='tudo'?'check-ins e relatórios':tipo} entre ${ini} e ${fim}?
-
-Esta acção NÃO pode ser revertida.`);
-  if(!confirm1) return;
-
-  const confirm2=confirm('Confirmação final: os dados serão apagados permanentemente. Continuar?');
-  if(!confirm2) return;
-
-  let erros=0;
-  let apagados=0;
-
-  await loadAll();
-
-  // Delete relatorios in range
-  if(tipo==='tudo'||tipo==='relatorios'){
-    const toDelete=reports.filter(r=>r.data>=ini&&r.data<=fim);
-    for(const r of toDelete){
-      try{
-        const res=await fetch(`${SB_URL}/rest/v1/relatorios?id=eq.${r.id}`,{
-          method:'DELETE',
-          headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}
-        });
-        if(res.ok||res.status===204) apagados++;
-        else erros++;
-      }catch(e){ erros++; }
-    }
-  }
-
-  // Delete checkins in range
-  if(tipo==='tudo'||tipo==='checkins'){
-    const toDelete=checkins.filter(c=>c.data>=ini&&c.data<=fim);
-    for(const c of toDelete){
-      try{
-        const res=await fetch(`${SB_URL}/rest/v1/checkins?id=eq.${c.id}`,{
-          method:'DELETE',
-          headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}
-        });
-        if(res.ok||res.status===204) apagados++;
-        else erros++;
-      }catch(e){ erros++; }
-    }
-  }
-
-  await loadAll();
-
-  if(erros===0){
-    showPopup('delete','Dados Limpos ✅',`${apagados} registo(s) apagado(s) com sucesso entre ${ini} e ${fim}.`);
+  const promo=$('limpar-promo').value;
+  const pdv=$('limpar-pdv').value;
+  const di=$('limpar-di').value;
+  const df=$('limpar-df').value;
+  let items=[];
+  if(tipo==='relatorios'){
+    items=reports.filter(r=>{
+      if(promo&&r.promotora!==promo) return false;
+      if(pdv&&r.pdv!==pdv) return false;
+      if(di&&r.data<di) return false;
+      if(df&&r.data>df) return false;
+      return true;
+    }).map(r=>({
+      id:r.id,tipo:'relatorios',
+      label:`📋 ${r.data} · ${r.turno} · ${r.promotora}`,
+      sub:`${r.pdv} · Vendas: ${r.vendas} · ${r.status==='approved'?'✅ Aprovado':r.status==='pending'?'⏳ Pendente':'❌ Rejeitado'}`
+    }));
   } else {
-    showPopup('error','Limpeza Parcial',`${apagados} registo(s) apagado(s), ${erros} erro(s). Verifica as permissões no Supabase.`);
+    items=checkins.filter(c=>{
+      if(promo&&c.nome!==promo) return false;
+      if(pdv&&c.pdv!==pdv) return false;
+      if(di&&c.data<di) return false;
+      if(df&&c.data>df) return false;
+      return true;
+    }).map(c=>({
+      id:c.id,tipo:'checkins',
+      label:`📍 ${c.data} · ${c.turno} · ${c.nome}`,
+      sub:`${c.pdv} · Entrada: ${c.horaEntrada}${c.checkout?.horaSaida?' · Saída: '+c.checkout.horaSaida:' · Sem check-out'}`
+    }));
   }
-
-  renderSEquipa();
-  renderSCheckins();
+  $('limpar-count').textContent=`${items.length} registo(s) encontrado(s)`;
+  $('limpar-all').checked=false;
+  if(!items.length){
+    $('limpar-lista').innerHTML='<div class="empty" style="padding:20px"><div class="empty-icon">🔍</div>Nenhum registo encontrado.</div>';
+    return;
+  }
+  $('limpar-lista').innerHTML=items.map(item=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line2)" id="limpar-row-${item.id}">
+      <input type="checkbox" class="limpar-check" value="${item.id}" data-tipo="${item.tipo}"
+        style="width:15px;height:15px;accent-color:var(--red);flex-shrink:0" onchange="updateLimparCount()">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:12px">${item.label}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${item.sub}</div>
+      </div>
+    </div>`).join('');
 }
+
+function toggleSelectAll(){
+  const checked=$('limpar-all').checked;
+  document.querySelectorAll('.limpar-check').forEach(cb=>cb.checked=checked);
+  updateLimparCount();
+}
+function updateLimparCount(){
+  const n=document.querySelectorAll('.limpar-check:checked').length;
+  $('limpar-count').textContent=`${n} seleccionado(s)`;
+}
+
+async function apagarSeleccionados(){
+  const selected=[...document.querySelectorAll('.limpar-check:checked')];
+  if(!selected.length){showPopup('error','Nada Seleccionado','Selecciona pelo menos um registo para apagar.');return;}
+  if(!confirm(`Apagar ${selected.length} registo(s)? Esta acção não pode ser revertida.`)) return;
+  let apagados=0,erros=0;
+  for(const cb of selected){
+    const id=cb.value;
+    const table=cb.dataset.tipo==='relatorios'?'relatorios':'checkins';
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${id}`,{
+        method:'DELETE',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}
+      });
+      if(res.ok||res.status===204){
+        apagados++;
+        const row=document.getElementById('limpar-row-'+id);
+        if(row) row.remove();
+      } else erros++;
+    }catch(e){erros++;}
+  }
+  await loadAll();
+  $('limpar-all').checked=false;
+  updateLimparCount();
+  if(erros===0) showPopup('delete','Registos Apagados ✅',`${apagados} registo(s) apagado(s) com sucesso.`);
+  else showPopup('error','Limpeza Parcial',`${apagados} apagado(s), ${erros} erro(s).`);
+}
+
 
 // ══ SETUP ══
 function populateEstabelecimentos(){
