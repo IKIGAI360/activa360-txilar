@@ -1390,7 +1390,13 @@ function openModal(repId){
       <div class="modal-row"><span class="modal-row-label">${s} Ini → Fim</span>${r.stockIni?.[s]||0} → ${r.stockFim?.[s]||0} (consumo: ${Math.max(0,(r.stockIni?.[s]||0)-(r.stockFim?.[s]||0))})</div>
       <div class="modal-row"><span class="modal-row-label">${s} Preço / Validade</span>${r.precos?.[s]||'—'} MZN · ${r.validades?.[s]||'—'}</div>`).join('')}
     <div class="modal-section">Brindes</div>
-    ${BRINDES_TIPOS.map(b=>`<div class="modal-row"><span class="modal-row-label">🎁 ${b}</span>${r.brindesTurno?.[b]||0}</div>`).join('')}
+    ${BRINDES_TIPOS.map(b=>{
+      const bt=r.brindesTurno?.[b];
+      const rec=bt&&typeof bt==='object'?bt.recebidos||0:0;
+      const ofe=bt&&typeof bt==='object'?bt.oferecidos||0:(typeof bt==='number'?bt:0);
+      const dif=rec-ofe;
+      return `<div class="modal-row"><span class="modal-row-label">🎁 ${b}</span><span>Recebidos: ${rec} · Oferecidos: ${ofe} · Diferença: ${dif===0?'✅ OK':dif>0?'+'+dif:dif}</span></div>`;
+    }).join('')}
     <div class="modal-section">Fotos & Obs.</div>
     <div class="modal-row"><span class="modal-row-label">Fotos confirmadas</span>${fotos}/6</div>
     ${r.obs?`<div class="modal-row"><span class="modal-row-label">Obs.</span><em>${r.obs}</em></div>`:''}
@@ -1514,7 +1520,7 @@ function renderSValidar(){
   const mkRow=(r,pend)=>`
     <div class="approval-row">
       <div class="approval-name">${r.promotora} — ${r.pdv} <span style="color:var(--muted);font-weight:400;font-size:11px">${r.data} · ${r.turno}</span></div>
-      <div class="approval-meta">Vendas: <strong>${r.vendas}</strong> · Interacções: ${r.interacoes} · Horas: ${r.horasCalc||'—'} · Fotos: ${[r.fotoSetup,r.fotoPdv,r.fotoGeleira,r.fotoDisplay,r.fotoInteracao,r.fotoPreco].filter(Boolean).length}/6</div>
+      <div class="approval-meta">Vendas: <strong>${r.vendas}</strong> · Interacções: ${r.interacoes} · Horas: ${r.horasCalc||'—'} · Fotos: ${[r.fotoSetup,r.fotoPdv,r.fotoGeleira,r.fotoDisplay,r.fotoInteracao,r.fotoPreco].filter(Boolean).length}/6 · Brindes: ${BRINDES_TIPOS.reduce((s,b)=>{const bt=r.brindesTurno?.[b];return s+(bt&&typeof bt==='object'?bt.oferecidos||0:typeof bt==='number'?bt:0);},0)}</div>
       <div class="approval-actions">
         <button class="btn-sm edit-btn" onclick="openModal('${r.id}')">👁 Ver / Editar</button>
         ${pend?`<button class="btn-sm approve" onclick="validateReport('${r.id}','approved')">✅ Aprovar</button>
@@ -1696,7 +1702,12 @@ function renderSRegistos(){
     if(promo&&r.promotora!==promo)return false;if(estado&&r.status!==estado)return false;
     if(di&&r.data<di)return false;if(df&&r.data>df)return false;return true;
   });
-  const bT=r=>BRINDES_TIPOS.reduce((s,b)=>s+(r.brindesTurno?.[b]||0),0);
+  const bT=r=>BRINDES_TIPOS.reduce((s,b)=>{
+    const bt=r.brindesTurno?.[b];
+    if(!bt) return s;
+    if(typeof bt==='object') return s+(bt.oferecidos||0);
+    return s+(bt||0);
+  },0);
   $('s-full-table').innerHTML=f.length?[...f].reverse().map(r=>{
     const fotos=[r.fotoSetup,r.fotoPdv,r.fotoGeleira,r.fotoDisplay,r.fotoInteracao,r.fotoPreco].filter(Boolean).length;
     const conv=r.interacoes?((r.vendas/r.interacoes)*100).toFixed(0):0;
