@@ -663,6 +663,24 @@ tr:hover td{background:var(--yellow-light)}
             <thead><tr><th>Brinde</th><th>Quantidade</th></tr></thead>
             <tbody id="c-brindes"></tbody>
           </table></div></div>
+        <div class="card">
+          <div class="card-title"><div class="icon accent">🎯</div> Metas da Campanha — Six Pack TXILAR</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">
+            <div style="background:var(--yellow-light);border:1.5px solid var(--yellow-dark);border-radius:10px;padding:16px;text-align:center">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Meta Semanal</div>
+              <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1">200</div>
+              <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-top:4px">Six Pack vendidos / semana</div>
+            </div>
+            <div style="background:var(--red-light);border:1.5px solid rgba(228,0,43,0.2);border-radius:10px;padding:16px;text-align:center">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Meta Mensal</div>
+              <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1">800</div>
+              <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-top:4px">Six Pack vendidos / mês</div>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">
+            <strong>Six Pack TXILAR</strong> = embalagem de 6 unidades. Metas definidas para a campanha de activação em supermercados · ACTIVA360 · IKIGAI360
+          </p>
+        </div>
         <div class="card"><div class="card-title"><div class="icon accent">📈</div> Resumo Executivo</div>
           <div id="c-resumo" class="grid" style="gap:14px"></div></div>
         <p class="footnote" style="text-align:center;padding-bottom:6px">
@@ -1187,9 +1205,18 @@ async function deletePromotora(id,nome){
       method:'DELETE',
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}
     });
-    if(res.ok){showPopup('delete','Promotora Removida',nome+' foi removida da equipa.');await loadAll();renderSEquipa();}
-    else showToast('Erro ao apagar ('+res.status+').','error');
-  }catch(e){showToast('Erro ao apagar.','error');}
+    if(res.ok||res.status===204||res.status===200){
+      showPopup('delete','Promotora Removida',nome+' foi removida da equipa.');
+      await loadAll();renderSEquipa();
+    } else {
+      const errText=await res.text().catch(()=>'');
+      console.error('deletePromotora failed',res.status,errText);
+      showPopup('error','Erro ao Apagar','Não foi possível apagar (erro '+res.status+'). Verifica as permissões no Supabase.');
+    }
+  }catch(e){
+    console.error('deletePromotora exception',e);
+    showPopup('error','Erro ao Apagar','Erro de ligação ao tentar apagar a promotora.');
+  }
 }
 function renderSCheckins(){
   const ci=checkins.filter(c=>c.data===todayISO());
@@ -1318,9 +1345,18 @@ async function deleteRelatorio(id,promotora,data){
       method:'DELETE',
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}
     });
-    if(res.ok){showPopup('delete','Relatório Apagado','O relatório foi removido permanentemente.');await loadAll();renderSValidar();}
-    else showToast('Erro ao apagar ('+res.status+').','error');
-  }catch(e){showToast('Erro ao apagar.','error');}
+    if(res.ok||res.status===204||res.status===200){
+      showPopup('delete','Relatório Apagado','O relatório foi removido permanentemente.');
+      await loadAll();renderSValidar();
+    } else {
+      const errText=await res.text().catch(()=>'');
+      console.error('deleteRelatorio failed',res.status,errText);
+      showPopup('error','Erro ao Apagar','Não foi possível apagar o relatório (erro '+res.status+').');
+    }
+  }catch(e){
+    console.error('deleteRelatorio exception',e);
+    showPopup('error','Erro ao Apagar','Erro de ligação ao tentar apagar o relatório.');
+  }
 }
 function closeModal(){$('modal-overlay').classList.remove('open');editingRepId=null;}
 $('modal-overlay').addEventListener('click',e=>{if(e.target===$('modal-overlay'))closeModal();});
