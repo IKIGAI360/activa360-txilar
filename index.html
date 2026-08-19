@@ -360,6 +360,31 @@ tr:hover td{background:var(--yellow-light)}
 .toast.error{background:var(--red)}
 .toast.success{background:var(--yellow-dark);color:var(--ink)}
 
+/* ── POPUP NOTIFICATION ── */
+.popup-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.45);
+  z-index:2000;display:none;align-items:center;justify-content:center;
+}
+.popup-overlay.open{display:flex}
+.popup-box{
+  background:var(--white);border-radius:16px;padding:32px 28px;
+  max-width:340px;width:90%;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,0.25);
+  animation:popIn .2s ease;
+}
+@keyframes popIn{from{transform:scale(0.85);opacity:0}to{transform:scale(1);opacity:1}}
+.popup-icon{font-size:48px;margin-bottom:12px;line-height:1}
+.popup-title{font-family:'Poppins',sans-serif;font-weight:800;font-size:18px;color:var(--ink);margin-bottom:6px}
+.popup-msg{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:20px}
+.popup-btn{
+  font-family:'Poppins',sans-serif;font-weight:800;font-size:13px;
+  padding:11px 28px;border:none;border-radius:8px;cursor:pointer;
+  background:var(--yellow);color:var(--ink);border:2px solid var(--yellow-dark);
+  transition:background .15s;
+}
+.popup-btn.red{background:var(--red);color:#fff;border-color:var(--red-dark)}
+.popup-btn:hover{opacity:0.88}
+
 @media(max-width:600px){
   .grid,.grid2{grid-template-columns:1fr}
   .client-kpi-row{flex-direction:column}
@@ -491,7 +516,6 @@ tr:hover td{background:var(--yellow-light)}
         <div class="grid">
           <div class="field"><label>Visitantes na Loja</label><input type="number" min="0" id="f-visitantes" value="0"></div>
           <div class="field"><label>Abordagens / Interacções</label><input type="number" min="0" id="f-interacoes" value="0"></div>
-          <div class="field"><label>Abordagens Feitas</label><input type="number" min="0" id="f-amostragens" value="0"></div>
           <div class="field"><label>Vendas Convertidas</label><input type="number" min="0" id="f-vendas" value="0"></div>
           <div class="field"><label>Concorrência no PDV?</label><select id="f-concorrencia"><option value="">—</option><option>Sim</option><option>Não</option></select></div>
         </div>
@@ -660,6 +684,16 @@ tr:hover td{background:var(--yellow-light)}
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- POPUP NOTIFICATION -->
+<div class="popup-overlay" id="popup-overlay" onclick="closePopup()">
+  <div class="popup-box" onclick="event.stopPropagation()">
+    <div class="popup-icon" id="popup-icon"></div>
+    <div class="popup-title" id="popup-title"></div>
+    <div class="popup-msg" id="popup-msg"></div>
+    <button class="popup-btn" id="popup-btn" onclick="closePopup()">OK</button>
+  </div>
+</div>
+
 <script>
 // ══ CONFIG ══
 const PINS={promotora:'1234',supervisor:'5678',cliente:'0000'};
@@ -689,10 +723,23 @@ function calcHours(a,b){
   return Math.floor(d/60)+'h'+String(d%60).padStart(2,'0')+'m';
 }
 function showToast(msg,type='success'){
+  // Minor background messages still use toast
   const t=$('toast');t.textContent=msg;
   t.className='toast '+(type==='error'?'error':'success');
   t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);
 }
+
+// Popup for key user actions
+function showPopup(type, title, msg){
+  const icons={checkin:'📍',checkout:'🏁',report:'📋',success:'✅',error:'❌',info:'ℹ️',delete:'🗑'};
+  const isError=type==='error';
+  $('popup-icon').textContent=icons[type]||icons.success;
+  $('popup-title').textContent=title;
+  $('popup-msg').textContent=msg;
+  $('popup-btn').className='popup-btn'+(isError?' red':'');
+  $('popup-overlay').classList.add('open');
+}
+function closePopup(){$('popup-overlay').classList.remove('open');}
 function chartOpts(horiz){
   return{indexAxis:horiz?'y':'x',responsive:true,
     plugins:{legend:{display:false}},
@@ -981,12 +1028,12 @@ async function doCheckin(){
   };
   const ok=await saveCheckin(ci);
   if(ok){
-    showToast('Check-in registado! Bom turno, '+p.nome.split(' ')[0]+' 🎉');
+    showPopup('checkin','Check-in Registado! 📍','Bom turno, '+p.nome.split(' ')[0]+'! A tua presença ficou registada.');
     $('checkout-card').style.display='block';$('checkout-card').dataset.ciId=ci.id;
     $('co-hora-saida').value=nowHHMM();calcHorasAuto();
     $('f-nome').value=pId;$('f-pdv-display').value=p.pdv;
     $('f-hora-inicio').value=ci.horaEntrada;$('f-turno').value=ci.turno;
-  }else showToast('Erro ao registar check-in.','error');
+  }else showPopup('error','Erro no Check-in','Não foi possível registar o check-in. Verifica a ligação e tenta novamente.');
 }
 async function doCheckout(){
   const ciId=$('checkout-card').dataset.ciId;
@@ -997,8 +1044,8 @@ async function doCheckout(){
     limpeza:$('co-limpeza').checked,stockDev:$('co-stock-dev').checked,fotosEnv:$('co-fotos-env').checked
   };
   const ok=await updateCheckin(ciId,checkout);
-  if(ok){showToast('Check-out registado! 👏');}
-  else showToast('Erro no check-out.','error');
+  if(ok){showPopup('checkout','Check-out Registado! 🏁','O teu turno ficou concluído. Obrigada pelo trabalho!');}
+  else showPopup('error','Erro no Check-out','Não foi possível registar o check-out. Verifica a ligação e tenta novamente.');
   $('checkout-card').style.display='none';
 }
 async function submitReport(){
@@ -1022,7 +1069,7 @@ async function submitReport(){
     stockIni:sI,stockFim:sF,consumoTotal:consumo,precos:pr,validades:val,brindesTurno:bT,
     visitantes:parseInt($('f-visitantes').value)||0,
     interacoes:parseInt($('f-interacoes').value)||0,
-    abordagens:parseInt($('f-amostragens').value)||0,
+    abordagens:parseInt($('f-interacoes').value)||0,
     vendas:parseInt($('f-vendas').value)||0,
     concorrencia:$('f-concorrencia').value,
     fotoSetup:$('f-foto-setup').checked,fotoPdv:$('f-foto-pdv').checked,
@@ -1032,11 +1079,11 @@ async function submitReport(){
   };
   const ok=await saveRelatorio(rep);
   if(ok){
-    showToast('Relatório submetido! ✅ Aguarda validação.');
+    showPopup('report','Relatório Submetido! 📋','O teu relatório foi enviado com sucesso e aguarda validação do supervisor.');
     ['f-visitantes','f-interacoes','f-amostragens','f-vendas'].forEach(id=>$(id).value=0);
     SKUS.forEach(s=>{$('f-stock-ini-'+s).value=0;$('f-stock-fim-'+s).value=0;});
     $('f-obs').value='';
-  }else showToast('Erro ao submeter.','error');
+  }else showPopup('error','Erro ao Submeter','Não foi possível enviar o relatório. Verifica a ligação e tenta novamente.');
 }
 async function renderPHistorico(){
   await loadAll();
@@ -1064,7 +1111,7 @@ async function addPromotora(){
   const p={id:'p_'+Date.now(),nome,pdv:$('sup-new-pdv').value,turno:$('sup-new-turno').value,tel:$('sup-new-tel').value,pin};
   const ok=await savePromotora(p);
   if(!ok){showToast('Erro ao guardar. Tenta de novo.','error');return;}
-  showToast(nome+' adicionada! ✅');
+  showPopup('success','Promotora Adicionada ✅',nome+' foi adicionada à equipa com sucesso.');
   $('sup-new-nome').value='';$('sup-new-tel').value='';$('sup-new-pin').value='';
   await loadAll();renderSEquipa();
 }
@@ -1117,15 +1164,32 @@ async function saveEditPromotora(id){
     pin:newPin.length>=4?newPin:p.pin
   };
   const ok=await sbFetch('PATCH','promotoras',updated,`?id=eq.${id}`);
-  if(ok){showToast('Promotora actualizada! ✅');closeModal();await loadAll();renderSEquipa();}
-  else showToast('Erro ao guardar.','error');
+  if(ok){
+    showPopup('success','Promotora Actualizada ✅','Os dados foram guardados com sucesso.');
+    closeModal();
+    await loadAll();
+    renderSEquipa();
+    // If this is the logged-in promotora, refresh her PDV display
+    if(currentPromoId===id){
+      const updated_p=promotoras.find(x=>x.id===id);
+      if(updated_p){
+        $('ci-pdv-display').value=updated_p.pdv;
+        $('f-pdv-display').value=updated_p.pdv;
+      }
+    }
+  }else showToast('Erro ao guardar.','error');
 }
 
 async function deletePromotora(id,nome){
   if(!confirm(`Apagar "${nome}"? Esta acção não pode ser desfeita.`))return;
-  const ok=await sbFetch('DELETE','promotoras',null,`?id=eq.${id}`);
-  if(ok){showToast(nome+' removida.');await loadAll();renderSEquipa();}
-  else showToast('Erro ao apagar.','error');
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/promotoras?id=eq.${id}`,{
+      method:'DELETE',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}
+    });
+    if(res.ok){showPopup('delete','Promotora Removida',nome+' foi removida da equipa.');await loadAll();renderSEquipa();}
+    else showToast('Erro ao apagar ('+res.status+').','error');
+  }catch(e){showToast('Erro ao apagar.','error');}
 }
 function renderSCheckins(){
   const ci=checkins.filter(c=>c.data===todayISO());
@@ -1239,19 +1303,24 @@ async function saveModal(newStatus){
   r.status=newStatus==='rejected'?'rejected':'approved';
   await updateRelatorio(r);
   await loadAll();
-  showToast(newStatus==='rejected'?'Relatório rejeitado.':'Relatório guardado! ✅');
+  showPopup(newStatus==='rejected'?'error':'success',newStatus==='rejected'?'Relatório Rejeitado':'Relatório Guardado ✅',newStatus==='rejected'?'O relatório foi marcado como rejeitado.':'As alterações foram guardadas com sucesso.');
   closeModal();renderSValidar();
 }
 async function validateReport(id,status){
   await sbFetch('PATCH','relatorios',{status,validado_em:new Date().toISOString()},`?id=eq.${id}`);
-  showToast(status==='approved'?'Aprovado! ✅':'Rejeitado.');
+  showPopup(status==='approved'?'success':'error',status==='approved'?'Relatório Aprovado ✅':'Relatório Rejeitado ❌',status==='approved'?'Os dados ficam agora visíveis no dashboard do cliente.':'O relatório foi marcado como rejeitado.');
   await loadAll();renderSValidar();
 }
 async function deleteRelatorio(id,promotora,data){
   if(!confirm(`Apagar relatório de ${promotora} (${data})? Esta acção não pode ser desfeita.`))return;
-  const ok=await sbFetch('DELETE','relatorios',null,`?id=eq.${id}`);
-  if(ok){showToast('Relatório apagado.');await loadAll();renderSValidar();}
-  else showToast('Erro ao apagar.','error');
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/relatorios?id=eq.${id}`,{
+      method:'DELETE',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'}
+    });
+    if(res.ok){showPopup('delete','Relatório Apagado','O relatório foi removido permanentemente.');await loadAll();renderSValidar();}
+    else showToast('Erro ao apagar ('+res.status+').','error');
+  }catch(e){showToast('Erro ao apagar.','error');}
 }
 function closeModal(){$('modal-overlay').classList.remove('open');editingRepId=null;}
 $('modal-overlay').addEventListener('click',e=>{if(e.target===$('modal-overlay'))closeModal();});
@@ -1361,9 +1430,14 @@ function renderSAlertas(){
 let metasCache={};
 
 async function loadMetas(){
-  const data=await sbFetch('GET','metas',null,'?order=pdv.asc');
-  metasCache={};
-  if(data&&Array.isArray(data)) data.forEach(m=>metasCache[m.pdv]=m.meta);
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/metas?order=pdv.asc`,{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    const data=await res.json();
+    metasCache={};
+    if(Array.isArray(data)) data.forEach(m=>metasCache[m.pdv]=m.meta);
+  }catch(e){ console.error('loadMetas error',e); }
   return metasCache;
 }
 
@@ -1382,10 +1456,30 @@ async function saveMetas(){
     pdv:e.nome,
     meta:parseInt(document.getElementById('meta-'+e.nome.replace(/[^a-zA-Z0-9]/g,''))?.value)||0
   }));
-  // Upsert all metas
-  const ok=await sbFetch('POST','metas',rows,'?on_conflict=pdv');
-  if(ok){showToast('Metas guardadas! ✅');await loadMetas();}
-  else showToast('Erro ao guardar metas.','error');
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/metas`,{
+      method:'POST',
+      headers:{
+        'apikey':SB_KEY,
+        'Authorization':'Bearer '+SB_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
+      body:JSON.stringify(rows)
+    });
+    if(res.ok){
+      showPopup('success','Metas Guardadas ✅','As metas por PDV foram actualizadas e já aparecem no dashboard do cliente.');
+      await loadMetas();
+      renderMetasForm();
+    } else {
+      const err=await res.text();
+      console.error('saveMetas error',res.status,err);
+      showPopup('error','Erro ao Guardar','Não foi possível guardar as metas ('+res.status+'). Verifica a ligação.');
+    }
+  }catch(e){
+    console.error('saveMetas exception',e);
+    showPopup('error','Erro ao Guardar','Não foi possível guardar as metas. Verifica a ligação.');
+  }
 }
 
 function populateSFilters(){
