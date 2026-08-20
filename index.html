@@ -896,6 +896,7 @@ const SB_URL='https://qowqhxymrscitisndsad.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvd3FoeHltcnNjaXRpc25kc2FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjgzNjksImV4cCI6MjEwMDgwNDM2OX0.-5X_vO9-de-xfQ3OVuO4IU3O9yHsRdhZSJEPm3LXdzA';
 
 async function sbFetch(method, table, data=null, query=''){
+  console.log('sbFetch:', method, table, query, data?JSON.stringify(data).slice(0,100):'null');
   const res=await fetch(`${SB_URL}/rest/v1/${table}${query}`,{
     method, headers:{
       'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,
@@ -903,9 +904,10 @@ async function sbFetch(method, table, data=null, query=''){
     },
     body:data?JSON.stringify(data):undefined
   });
-  if(!res.ok){ console.error('sbFetch error',method,table,res.status,await res.text()); return null; }
-  const txt=await res.text();
-  return txt?JSON.parse(txt):true;
+  const resText=await res.text();
+  if(!res.ok){ console.error('sbFetch error',method,table,res.status,resText); return null; }
+  console.log('sbFetch ok:', res.status, resText.slice(0,50));
+  return resText?JSON.parse(resText):true;
 }
 
 async function loadAll(){
@@ -1160,8 +1162,14 @@ function calcBrindesDiffSimple(){
   if(el) el.value=diffs.length?diffs.join(' · '):'✅ Sem diferença';
 }
 async function doCheckin(){
-  const pId=$('ci-nome').value;if(!pId){showToast('Selecciona o teu nome.','error');return;}
+  console.log('doCheckin START');
+  // Use currentPromoId directly — select is disabled so .value may be empty
+  const pId=currentPromoId||$('ci-nome').value;
+  console.log('pId:', pId);
+  if(!pId){showPopup('error','Erro','Não foi possível identificar a promotora. Tenta sair e entrar novamente.');return;}
   const p=promotoras.find(x=>x.id===pId);
+  console.log('promotora:', p);
+  if(!p){showPopup('error','Erro','Promotora não encontrada. Tenta sair e entrar novamente.');return;}
   const ci={
     id:'ci_'+Date.now(),promotaId:pId,nome:p.nome,pdv:p.pdv,
     pdvRegiao:ESTABELECIMENTOS.find(e=>e.nome===p.pdv)?.regiao||'',
@@ -1171,7 +1179,11 @@ async function doCheckin(){
     geleira:$('ci-geleira').checked,stockOk:$('ci-stock-ok').checked,
     obsEntrada:$('ci-obs-entrada').value,checkout:null
   };
-  const ok=await saveCheckin(ci);
+  console.log('ci object:', JSON.stringify(ci));
+  console.log('calling saveCheckin...');
+  let ok=false;
+  try{ ok=await saveCheckin(ci); }catch(e){ console.error('saveCheckin exception:',e); }
+  console.log('saveCheckin result:', ok);
   if(ok){
     showPopup('checkin','Check-in Registado! 📍','Bom turno, '+p.nome.split(' ')[0]+'! A tua presença ficou registada.');
     $('checkout-card').style.display='block';$('checkout-card').dataset.ciId=ci.id;
@@ -1194,7 +1206,8 @@ async function doCheckout(){
   $('checkout-card').style.display='none';
 }
 async function submitReport(){
-  const pId=$('f-nome').value;if(!pId){showToast('Selecciona o teu nome.','error');return;}
+  const pId=currentPromoId||$('f-nome').value;
+  if(!pId){showPopup('error','Erro','Não foi possível identificar a promotora. Tenta sair e entrar novamente.');return;}
   const p=promotoras.find(x=>x.id===pId);
   const sI={},sF={},pr={},val={};let consumo=0;
   SKUS.forEach(s=>{
