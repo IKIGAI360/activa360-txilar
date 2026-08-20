@@ -672,7 +672,7 @@ tr:hover td{background:var(--yellow-light)}
         <div class="field"><label>&nbsp;</label><button class="btn-sm" onclick="clearSFilters()">✕ Limpar</button></div>
       </div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Estado</th><th>Data</th><th>Turno</th><th>PDV</th><th>Promotora</th><th>Horas</th><th>Visitas</th><th>Interacções</th><th>Vendas</th><th>Conv%</th><th>Brindes</th><th>Fotos</th><th>Acções</th></tr></thead>
+        <thead><tr><th>Estado</th><th>Data</th><th>Submetido</th><th>Turno</th><th>PDV</th><th>Promotora</th><th>Horas</th><th>Visitas</th><th>Interacções</th><th>Vendas</th><th>Conv%</th><th>Brindes</th><th>Fotos</th><th>Acções</th></tr></thead>
         <tbody id="s-full-table"></tbody>
       </table></div></div>
     </div>
@@ -1245,9 +1245,12 @@ async function doCheckout(){
     showPopup('error','Erro no Check-out','Não foi possível registar o check-out. Verifica a ligação e tenta novamente.');
   }
 }
+let _submitting=false;
 async function submitReport(){
+  if(_submitting){showToast('A submeter, aguarda…');return;}
+  _submitting=true;
   const pId=currentPromoId||$('f-nome').value;
-  if(!pId){showPopup('error','Erro','Não foi possível identificar a promotora. Tenta sair e entrar novamente.');return;}
+  if(!pId){_submitting=false;showPopup('error','Erro','Não foi possível identificar a promotora. Tenta sair e entrar novamente.');return;}
   // Reload promotoras fresh to get latest PDV assignment from supervisor
   await loadAll();
   const p=promotoras.find(x=>x.id===pId);
@@ -1288,7 +1291,11 @@ async function submitReport(){
     ['f-visitantes','f-interacoes','f-amostragens','f-vendas'].forEach(id=>$(id).value=0);
     SKUS.forEach(s=>{$('f-stock-ini-'+s).value=0;$('f-stock-fim-'+s).value=0;});
     $('f-obs').value='';
-  }else showPopup('error','Erro ao Submeter','Não foi possível enviar o relatório. Verifica a ligação e tenta novamente.');
+    _submitting=false;
+  }else{
+    _submitting=false;
+    showPopup('error','Erro ao Submeter','Não foi possível enviar o relatório. Verifica a ligação e tenta novamente.');
+  }
 }
 async function renderPHistorico(){
   await loadAll();
@@ -1786,9 +1793,12 @@ function renderSRegistos(){
     const conv=r.interacoes?((r.vendas/r.interacoes)*100).toFixed(0):0;
     const tag=r.status==='approved'?'tag-approved':r.status==='rejected'?'tag-rejected':'tag-pending';
     const lbl=r.status==='approved'?'✅':r.status==='rejected'?'❌':'⏳';
+    const submAt=r.submetidoEm?new Date(r.submetidoEm).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):'—';
     return`<tr>
       <td><span class="${tag}">${lbl}</span></td>
-      <td>${r.data}</td><td>${r.turno}</td><td>${r.pdv}</td><td>${r.promotora}</td>
+      <td>${r.data}</td>
+      <td style="font-size:11px;color:var(--muted);font-weight:600">${submAt}</td>
+      <td>${r.turno}</td><td>${r.pdv}</td><td>${r.promotora}</td>
       <td>${r.horasCalc||'—'}</td><td>${r.visitantes}</td><td>${r.interacoes}</td>
       <td><strong>${r.vendas}</strong></td>
       <td><span class="badge ${conv>=30?'ok':conv>=15?'warn':'danger'}">${conv}%</span></td>
@@ -1826,7 +1836,9 @@ async function renderCliente(){
   if(cFilReg) cFilReg.innerHTML='<option value="">Todas</option>'+regs.map(r=>`<option>${r}</option>`).join('');
 
   const datas=approved.map(r=>r.data).sort();
-  $('c-periodo').textContent=`Campanha: ${datas[0]} → ${datas[datas.length-1]} · ${approved.length} turnos validados`;
+  const hoje=todayISO();
+  const apvHoje=approved.filter(r=>r.data===hoje).length;
+  $('c-periodo').textContent=`Campanha: ${datas[0]} → ${datas[datas.length-1]} · ${approved.length} turnos validados (${apvHoje} hoje)`;
 
   const tV=approved.reduce((s,r)=>s+r.vendas,0);
   const tI=approved.reduce((s,r)=>s+r.interacoes,0);
