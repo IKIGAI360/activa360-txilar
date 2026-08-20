@@ -1115,13 +1115,21 @@ async function initPromotoraLayer(){
   // Auto-fill with logged-in promotora — she can't change it
   const p=promotoras.find(x=>x.id===currentPromoId);
   if(p){
-    // Check-in selects
     $('ci-nome').innerHTML=`<option value="${p.id}" selected>${p.nome}</option>`;
     $('ci-pdv-display').value=p.pdv;
-    // Report selects
     $('f-nome').innerHTML=`<option value="${p.id}" selected>${p.nome}</option>`;
     $('f-pdv-display').value=p.pdv;
   }
+  // Always refresh PDV display from latest data on tab switch
+  const refreshPDV=async()=>{
+    await loadAll();
+    const latest=promotoras.find(x=>x.id===currentPromoId);
+    if(latest){
+      $('ci-pdv-display').value=latest.pdv;
+      $('f-pdv-display').value=latest.pdv;
+    }
+  };
+  refreshPDV();
   // Make selects read-only visually
   ['ci-nome','f-nome'].forEach(id=>{
     const el=$(id);if(el){el.disabled=true;el.style.background='var(--line2)';el.style.color='var(--ink2)';}
@@ -1163,10 +1171,11 @@ function calcBrindesDiffSimple(){
 }
 async function doCheckin(){
   console.log('doCheckin START');
-  // Use currentPromoId directly — select is disabled so .value may be empty
   const pId=currentPromoId||$('ci-nome').value;
   console.log('pId:', pId);
   if(!pId){showPopup('error','Erro','Não foi possível identificar a promotora. Tenta sair e entrar novamente.');return;}
+  // Reload promotoras to get latest PDV assignment
+  await loadAll();
   const p=promotoras.find(x=>x.id===pId);
   console.log('promotora:', p);
   if(!p){showPopup('error','Erro','Promotora não encontrada. Tenta sair e entrar novamente.');return;}
@@ -1208,6 +1217,8 @@ async function doCheckout(){
 async function submitReport(){
   const pId=currentPromoId||$('f-nome').value;
   if(!pId){showPopup('error','Erro','Não foi possível identificar a promotora. Tenta sair e entrar novamente.');return;}
+  // Reload promotoras fresh to get latest PDV assignment from supervisor
+  await loadAll();
   const p=promotoras.find(x=>x.id===pId);
   const sI={},sF={},pr={},val={};let consumo=0;
   SKUS.forEach(s=>{
@@ -1698,12 +1709,13 @@ async function saveMetas(){
 }
 
 function populateSFilters(){
-  const regs=[...new Set(ESTABELECIMENTOS.map(e=>e.regiao))];
-  const pdvs=[...new Set(reports.map(r=>r.pdv))];
-  const promos=[...new Set(reports.map(r=>r.promotora))];
-  $('s-fil-reg').innerHTML='<option value="">Todas</option>'+regs.map(r=>`<option>${r}</option>`).join('');
-  $('s-fil-pdv').innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
-  $('s-fil-promo').innerHTML='<option value="">Todas</option>'+promos.map(p=>`<option>${p}</option>`).join('');
+  const regs=[...new Set(reports.map(r=>r.regiao).filter(Boolean))].sort();
+  const pdvs=[...new Set(reports.map(r=>r.pdv).filter(Boolean))].sort();
+  const promos=[...new Set(reports.map(r=>r.promotora).filter(Boolean))].sort();
+  const regEl=$('s-fil-reg');const pdvEl=$('s-fil-pdv');const proEl=$('s-fil-promo');
+  if(regEl) regEl.innerHTML='<option value="">Todas</option>'+regs.map(r=>`<option>${r}</option>`).join('');
+  if(pdvEl) pdvEl.innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
+  if(proEl) proEl.innerHTML='<option value="">Todas</option>'+promos.map(p=>`<option>${p}</option>`).join('');
 }
 function renderSRegistos(){
   const reg=$('s-fil-reg').value,pdv=$('s-fil-pdv').value,promo=$('s-fil-promo').value;
@@ -1756,9 +1768,12 @@ async function renderCliente(){
   $('c-no-data').style.display='none';
   $('c-content').style.display='block';
 
-  // Populate PDV filter
+  // Populate client filters dynamically
   const pdvs=[...new Set(approved.map(r=>r.pdv))].sort();
-  $('c-fil-pdv').innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
+  const regs=[...new Set(approved.map(r=>r.regiao).filter(Boolean))].sort();
+  const cFilPdv=$('c-fil-pdv');const cFilReg=$('c-fil-reg');
+  if(cFilPdv) cFilPdv.innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
+  if(cFilReg) cFilReg.innerHTML='<option value="">Todas</option>'+regs.map(r=>`<option>${r}</option>`).join('');
 
   const datas=approved.map(r=>r.data).sort();
   $('c-periodo').textContent=`Campanha: ${datas[0]} → ${datas[datas.length-1]} · ${approved.length} turnos validados`;
@@ -1779,9 +1794,10 @@ async function renderCliente(){
 }
 
 function getFilteredApproved(){
-  const reg=$('c-fil-reg')?.value||'';
-  const pdv=$('c-fil-pdv')?.value||'';
-  const periodo=$('c-fil-periodo')?.value||'tudo';
+  const regEl=$('c-fil-reg');const pdvEl=$('c-fil-pdv');const perEl=$('c-fil-periodo');
+  const reg=regEl?regEl.value:'';
+  const pdv=pdvEl?pdvEl.value:'';
+  const periodo=perEl?perEl.value:'tudo';
   const today=new Date();
 
   return reports.filter(r=>{
