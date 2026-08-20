@@ -610,6 +610,7 @@ tr:hover td{background:var(--yellow-light)}
             <input type="date" id="limpar-df" onchange="renderLimparLista()">
           </div>
           <button class="btn-sm" onclick="renderLimparLista()">🔍 Filtrar</button>
+          <button class="btn-sm" onclick="clearLimparFilters()">✕ Limpar Filtros</button>
         </div>
 
         <!-- SELECTALL + DELETE -->
@@ -662,12 +663,13 @@ tr:hover td{background:var(--yellow-light)}
     </div>
     <div class="tab-content" id="tab-s-registos">
       <div class="filters">
-        <div class="field"><label>Região</label><select id="s-fil-reg" onchange="renderSRegistos()"><option value="">Todas</option></select></div>
+        <div class="field"><label>Região</label><select id="s-fil-reg" onchange="populateSFilters();renderSRegistos()"><option value="">Todas</option></select></div>
         <div class="field"><label>PDV</label><select id="s-fil-pdv" onchange="renderSRegistos()"><option value="">Todos</option></select></div>
         <div class="field"><label>Promotora</label><select id="s-fil-promo" onchange="renderSRegistos()"><option value="">Todas</option></select></div>
         <div class="field"><label>Estado</label><select id="s-fil-estado" onchange="renderSRegistos()"><option value="">Todos</option><option value="pending">Pendente</option><option value="approved">Aprovado</option></select></div>
         <div class="field"><label>De</label><input type="date" id="s-fil-di" onchange="renderSRegistos()"></div>
         <div class="field"><label>Até</label><input type="date" id="s-fil-df" onchange="renderSRegistos()"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn-sm" onclick="clearSFilters()">✕ Limpar</button></div>
       </div>
       <div class="card"><div class="table-wrap"><table>
         <thead><tr><th>Estado</th><th>Data</th><th>Turno</th><th>PDV</th><th>Promotora</th><th>Horas</th><th>Visitas</th><th>Interacções</th><th>Vendas</th><th>Conv%</th><th>Brindes</th><th>Fotos</th><th>Acções</th></tr></thead>
@@ -1709,21 +1711,40 @@ async function saveMetas(){
 }
 
 function populateSFilters(){
+  const selReg=$('s-fil-reg')?.value||'';
   const regs=[...new Set(reports.map(r=>r.regiao).filter(Boolean))].sort();
-  const pdvs=[...new Set(reports.map(r=>r.pdv).filter(Boolean))].sort();
-  const promos=[...new Set(reports.map(r=>r.promotora).filter(Boolean))].sort();
+  // Cascade: if region selected, filter PDVs and promotoras
+  const relevantReports=selReg?reports.filter(r=>r.regiao===selReg):reports;
+  const pdvs=[...new Set(relevantReports.map(r=>r.pdv).filter(Boolean))].sort();
+  const promos=[...new Set(relevantReports.map(r=>r.promotora).filter(Boolean))].sort();
   const regEl=$('s-fil-reg');const pdvEl=$('s-fil-pdv');const proEl=$('s-fil-promo');
-  if(regEl) regEl.innerHTML='<option value="">Todas</option>'+regs.map(r=>`<option>${r}</option>`).join('');
+  if(regEl) regEl.innerHTML='<option value="">Todas</option>'+regs.map(r=>`<option ${r===selReg?'selected':''}>${r}</option>`).join('');
   if(pdvEl) pdvEl.innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
   if(proEl) proEl.innerHTML='<option value="">Todas</option>'+promos.map(p=>`<option>${p}</option>`).join('');
 }
+
+function clearSFilters(){
+  ['s-fil-reg','s-fil-pdv','s-fil-promo','s-fil-estado','s-fil-di','s-fil-df'].forEach(id=>{
+    const el=$(id); if(el) el.value='';
+  });
+  populateSFilters();
+  renderSRegistos();
+}
 function renderSRegistos(){
-  const reg=$('s-fil-reg').value,pdv=$('s-fil-pdv').value,promo=$('s-fil-promo').value;
-  const estado=$('s-fil-estado').value,di=$('s-fil-di').value,df=$('s-fil-df').value;
+  const reg=$('s-fil-reg')?.value||'';
+  const pdv=$('s-fil-pdv')?.value||'';
+  const promo=$('s-fil-promo')?.value||'';
+  const estado=$('s-fil-estado')?.value||'';
+  const di=$('s-fil-di')?.value||'';
+  const df=$('s-fil-df')?.value||'';
   const f=reports.filter(r=>{
-    if(reg&&r.regiao!==reg)return false;if(pdv&&r.pdv!==pdv)return false;
-    if(promo&&r.promotora!==promo)return false;if(estado&&r.status!==estado)return false;
-    if(di&&r.data<di)return false;if(df&&r.data>df)return false;return true;
+    if(reg&&r.regiao!==reg)return false;
+    if(pdv&&r.pdv!==pdv)return false;
+    if(promo&&r.promotora!==promo)return false;
+    if(estado&&r.status!==estado)return false;
+    if(di&&r.data<di)return false;
+    if(df&&r.data>df)return false;
+    return true;
   });
   const bT=r=>BRINDES_TIPOS.reduce((s,b)=>{
     const bt=r.brindesTurno?.[b];
@@ -1829,15 +1850,23 @@ function renderClienteTabela(){
   const META_SEMANAL=200;
   const META_MENSAL=800;
 
-  // Aggregate by PDV — include only active+visible PDVs
+  // Get active filter values
+  const fReg=$('c-fil-reg')?.value||'';
+  const fPdv=$('c-fil-pdv')?.value||'';
+
+  // Aggregate by PDV — only visible PDVs, respecting filters
   const pdvMap={};
-  // Start with PDVs that are visible to client
-  ESTABELECIMENTOS_BASE.filter(e=>pdvConfig[e.nome]?.visivel_cliente!==false).forEach(e=>{
+  ESTABELECIMENTOS_BASE.filter(e=>{
+    if(pdvConfig[e.nome]?.visivel_cliente===false) return false;
+    if(fReg && e.regiao!==fReg) return false;
+    if(fPdv && e.nome!==fPdv) return false;
+    return true;
+  }).forEach(e=>{
     pdvMap[e.nome]={regiao:e.regiao,vendas:0,interacoes:0,amostragens:0};
   });
-  // Add actual data
+  // Add actual data from filtered reports
   filtered.forEach(r=>{
-    if(!pdvMap[r.pdv]) pdvMap[r.pdv]={regiao:r.regiao,vendas:0,interacoes:0,amostragens:0};
+    if(!pdvMap[r.pdv]) return; // skip PDVs not in current filter
     pdvMap[r.pdv].vendas+=r.vendas;
     pdvMap[r.pdv].interacoes+=r.interacoes;
     pdvMap[r.pdv].amostragens+=r.amostragens;
@@ -2030,15 +2059,21 @@ async function togglePDV(nome,campo,valor){
 // ══ LIMPAR DADOS ══
 async function renderLimparLista(){
   await loadAll();
-  const promos=[...new Set([...reports.map(r=>r.promotora),...checkins.map(c=>c.nome)])].sort();
-  const pdvs=[...new Set([...reports.map(r=>r.pdv),...checkins.map(c=>c.pdv)])].sort();
-  $('limpar-promo').innerHTML='<option value="">Todas</option>'+promos.map(p=>`<option>${p}</option>`).join('');
-  $('limpar-pdv').innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
+  // Save current filter values before repopulating dropdowns
   const tipo=$('limpar-tipo').value;
-  const promo=$('limpar-promo').value;
-  const pdv=$('limpar-pdv').value;
+  const promoVal=$('limpar-promo').value;
+  const pdvVal=$('limpar-pdv').value;
   const di=$('limpar-di').value;
   const df=$('limpar-df').value;
+
+  const promos=[...new Set([...reports.map(r=>r.promotora),...checkins.map(c=>c.nome)].filter(Boolean))].sort();
+  const pdvs=[...new Set([...reports.map(r=>r.pdv),...checkins.map(c=>c.pdv)].filter(Boolean))].sort();
+  $('limpar-promo').innerHTML='<option value="">Todas</option>'+promos.map(p=>`<option ${p===promoVal?'selected':''}>${p}</option>`).join('');
+  $('limpar-pdv').innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option ${p===pdvVal?'selected':''}>${p}</option>`).join('');
+
+  // Re-read after restore
+  const promo=$('limpar-promo').value;
+  const pdv=$('limpar-pdv').value;
   let items=[];
   if(tipo==='relatorios'){
     items=reports.filter(r=>{
@@ -2080,6 +2115,14 @@ async function renderLimparLista(){
         <div style="font-size:11px;color:var(--muted);margin-top:2px">${item.sub}</div>
       </div>
     </div>`).join('');
+}
+
+function clearLimparFilters(){
+  $('limpar-promo').value='';
+  $('limpar-pdv').value='';
+  $('limpar-di').value='';
+  $('limpar-df').value='';
+  renderLimparLista();
 }
 
 function toggleSelectAll(){
