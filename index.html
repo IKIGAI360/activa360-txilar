@@ -1220,10 +1220,10 @@ async function doCheckin(){
 }
 async function doCheckout(){
   const ciId=$('checkout-card').dataset.ciId;
-  const bOut={};BRINDES_TIPOS.forEach(b=>bOut[b]=parseInt($('co-br-out-'+slugB(b)).value)||0);
+  if(!ciId){showPopup('error','Erro','ID do check-in não encontrado. Tenta sair e entrar novamente.');return;}
   const checkout={
     horaSaida:$('co-hora-saida').value,horasCalc:$('co-horas-calc').value,
-    brindesOut:bOut,ocorrencias:$('co-ocorrencias').value,
+    ocorrencias:$('co-ocorrencias').value,
     limpeza:$('co-limpeza').checked,stockDev:$('co-stock-dev').checked,fotosEnv:$('co-fotos-env').checked
   };
   const ok=await updateCheckin(ciId,checkout);
