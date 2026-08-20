@@ -964,7 +964,18 @@ async function saveCheckin(c){
   });
 }
 async function updateCheckin(id,checkout){
-  return sbFetch('PATCH','checkins',{checkout},`?id=eq.${id}`);
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/checkins?id=eq.${id}`,{
+      method:'PATCH',
+      headers:{
+        'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,
+        'Content-Type':'application/json','Prefer':'return=minimal'
+      },
+      body:JSON.stringify({checkout})
+    });
+    console.log('updateCheckin status:', res.status);
+    return res.ok||res.status===204;
+  }catch(e){ console.error('updateCheckin error',e); return false; }
 }
 async function saveRelatorio(r){
   return sbFetch('POST','relatorios',{
@@ -1227,9 +1238,12 @@ async function doCheckout(){
     limpeza:$('co-limpeza').checked,stockDev:$('co-stock-dev').checked,fotosEnv:$('co-fotos-env').checked
   };
   const ok=await updateCheckin(ciId,checkout);
-  if(ok){showPopup('checkout','Check-out Registado! 🏁','O teu turno ficou concluído. Obrigada pelo trabalho!');}
-  else showPopup('error','Erro no Check-out','Não foi possível registar o check-out. Verifica a ligação e tenta novamente.');
-  $('checkout-card').style.display='none';
+  if(ok){
+    showPopup('checkout','Check-out Registado! 🏁','O teu turno ficou concluído. Obrigada pelo trabalho!');
+    $('checkout-card').style.display='none';
+  } else {
+    showPopup('error','Erro no Check-out','Não foi possível registar o check-out. Verifica a ligação e tenta novamente.');
+  }
 }
 async function submitReport(){
   const pId=currentPromoId||$('f-nome').value;
