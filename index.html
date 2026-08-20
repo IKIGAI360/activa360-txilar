@@ -956,7 +956,7 @@ async function saveCheckin(c){
     pdv_regiao:c.pdvRegiao,data:c.data,turno:c.turno,
     hora_entrada:c.horaEntrada,hora_saida_prev:c.horaSaidaPrev,
     uniforme:c.uniforme,material:c.material,geleira:c.geleira,stock_ok:c.stockOk,
-    obs_entrada:c.obsEntrada,brindes_in:c.brindesIn,checkout:c.checkout
+    obs_entrada:c.obsEntrada,checkout:c.checkout
   });
 }
 async function updateCheckin(id,checkout){
@@ -1131,7 +1131,6 @@ function calcHorasAuto(){
 }
 
 function buildBrindesBlocks(){
-  // Simplified: only in report — Recebidos + Oferecidos per brinde
   const el=document.getElementById('brindes-simplificado');if(!el)return;
   el.innerHTML=BRINDES_TIPOS.map(b=>`
     <div class="block-section" style="padding:11px 13px;margin-bottom:9px">
@@ -1163,7 +1162,6 @@ function calcBrindesDiffSimple(){
 async function doCheckin(){
   const pId=$('ci-nome').value;if(!pId){showToast('Selecciona o teu nome.','error');return;}
   const p=promotoras.find(x=>x.id===pId);
-  const bIn={};BRINDES_TIPOS.forEach(b=>bIn[b]=parseInt($('ci-br-in-'+slugB(b)).value)||0);
   const ci={
     id:'ci_'+Date.now(),promotaId:pId,nome:p.nome,pdv:p.pdv,
     pdvRegiao:ESTABELECIMENTOS.find(e=>e.nome===p.pdv)?.regiao||'',
@@ -1171,7 +1169,7 @@ async function doCheckin(){
     horaEntrada:$('ci-hora-entrada').value,horaSaidaPrev:$('ci-hora-saida-prev').value,
     uniforme:$('ci-uniforme').checked,material:$('ci-material').checked,
     geleira:$('ci-geleira').checked,stockOk:$('ci-stock-ok').checked,
-    obsEntrada:$('ci-obs-entrada').value,brindesIn:bIn,checkout:null
+    obsEntrada:$('ci-obs-entrada').value,checkout:null
   };
   const ok=await saveCheckin(ci);
   if(ok){
