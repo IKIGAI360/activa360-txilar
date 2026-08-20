@@ -1114,7 +1114,7 @@ async function initApp(){
 
 // ══ PROMOTORA ══
 async function initPromotoraLayer(){
-  // Auto-fill with logged-in promotora — she can't change it
+  await loadAll();
   const p=promotoras.find(x=>x.id===currentPromoId);
   if(p){
     $('ci-nome').innerHTML=`<option value="${p.id}" selected>${p.nome}</option>`;
@@ -1122,16 +1122,31 @@ async function initPromotoraLayer(){
     $('f-nome').innerHTML=`<option value="${p.id}" selected>${p.nome}</option>`;
     $('f-pdv-display').value=p.pdv;
   }
-  // Always refresh PDV display from latest data on tab switch
-  const refreshPDV=async()=>{
-    await loadAll();
-    const latest=promotoras.find(x=>x.id===currentPromoId);
-    if(latest){
-      $('ci-pdv-display').value=latest.pdv;
-      $('f-pdv-display').value=latest.pdv;
+
+  // Check if promotora already has an open check-in today (no checkout yet)
+  const today=todayISO();
+  const openCheckin=checkins.find(c=>
+    c.promotaId===currentPromoId &&
+    c.data===today &&
+    !c.checkout?.horaSaida
+  );
+  if(openCheckin){
+    // Show checkout card directly — skip check-in
+    const card=$('checkout-card');
+    card.style.display='block';
+    card.dataset.ciId=openCheckin.id;
+    $('ci-hora-entrada').value=openCheckin.horaEntrada||'';
+    $('co-hora-saida').value=nowHHMM();
+    calcHorasAuto();
+    // Pre-fill report fields
+    if(p){
+      $('f-pdv-display').value=p.pdv;
+      $('f-hora-inicio').value=openCheckin.horaEntrada||'';
+      $('f-turno').value=openCheckin.turno||'Manhã';
     }
-  };
-  refreshPDV();
+    // Show message to inform promotora
+    showToast('Check-in de hoje encontrado. Podes fazer o check-out.');
+  }
   // Make selects read-only visually
   ['ci-nome','f-nome'].forEach(id=>{
     const el=$(id);if(el){el.disabled=true;el.style.background='var(--line2)';el.style.color='var(--ink2)';}
