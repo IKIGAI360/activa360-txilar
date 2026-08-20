@@ -1134,29 +1134,41 @@ async function initPromotoraLayer(){
     $('f-pdv-display').value=p.pdv;
   }
 
-  // Check if promotora already has an open check-in today (no checkout yet)
+  // ── FLUXO: check-in → relatório → check-out ──
   const today=todayISO();
+
+  // 1. Find today's open check-in (no checkout yet)
   const openCheckin=checkins.find(c=>
     c.promotaId===currentPromoId &&
     c.data===today &&
     !c.checkout?.horaSaida
   );
+
+  // 2. Find if report submitted today for this promotora
+  const reportHoje=reports.find(r=>
+    r.promotaId===currentPromoId &&
+    r.data===today
+  );
+
   if(openCheckin){
-    // Show checkout card directly — skip check-in
-    const card=$('checkout-card');
-    card.style.display='block';
-    card.dataset.ciId=openCheckin.id;
+    // Pre-fill report with check-in data
+    $('f-hora-inicio').value=openCheckin.horaEntrada||'';
+    $('f-turno').value=openCheckin.turno||'Manhã';
     $('ci-hora-entrada').value=openCheckin.horaEntrada||'';
-    $('co-hora-saida').value=nowHHMM();
-    calcHorasAuto();
-    // Pre-fill report fields
-    if(p){
-      $('f-pdv-display').value=p.pdv;
-      $('f-hora-inicio').value=openCheckin.horaEntrada||'';
-      $('f-turno').value=openCheckin.turno||'Manhã';
+    // Store checkin id for checkout
+    $('checkout-card').dataset.ciId=openCheckin.id;
+
+    if(reportHoje){
+      // Report done → show checkout card
+      const card=$('checkout-card');
+      card.style.display='block';
+      $('co-hora-saida').value=nowHHMM();
+      calcHorasAuto();
+      showToast('Relatório submetido ✅ Podes fazer o check-out.');
+    } else {
+      // No report yet → guide to report tab
+      showToast('Check-in feito ✅ Submete o relatório antes do check-out.');
     }
-    // Show message to inform promotora
-    showToast('Check-in de hoje encontrado. Podes fazer o check-out.');
   }
   // Make selects read-only visually
   ['ci-nome','f-nome'].forEach(id=>{
@@ -1232,6 +1244,14 @@ async function doCheckin(){
 async function doCheckout(){
   const ciId=$('checkout-card').dataset.ciId;
   if(!ciId){showPopup('error','Erro','ID do check-in não encontrado. Tenta sair e entrar novamente.');return;}
+  // Block checkout if no report submitted today
+  await loadAll();
+  const today=todayISO();
+  const reportHoje=reports.find(r=>r.promotaId===currentPromoId&&r.data===today);
+  if(!reportHoje){
+    showPopup('error','Relatório em Falta','Tens de submeter o relatório do turno antes de fazeres o check-out.');
+    return;
+  }
   const checkout={
     horaSaida:$('co-hora-saida').value,horasCalc:$('co-horas-calc').value,
     ocorrencias:$('co-ocorrencias').value,
@@ -1251,8 +1271,16 @@ async function submitReport(){
   _submitting=true;
   const pId=currentPromoId||$('f-nome').value;
   if(!pId){_submitting=false;showPopup('error','Erro','Não foi possível identificar a promotora. Tenta sair e entrar novamente.');return;}
-  // Reload promotoras fresh to get latest PDV assignment from supervisor
+  // Reload fresh data
   await loadAll();
+  // Block report if no check-in today
+  const today=todayISO();
+  const checkinHoje=checkins.find(c=>c.promotaId===pId&&c.data===today&&!c.checkout?.horaSaida);
+  if(!checkinHoje){
+    _submitting=false;
+    showPopup('error','Check-in em Falta','Tens de fazer o check-in antes de submeter o relatório.');
+    return;
+  }
   const p=promotoras.find(x=>x.id===pId);
   const sI={},sF={},pr={},val={};let consumo=0;
   SKUS.forEach(s=>{
@@ -1287,10 +1315,17 @@ async function submitReport(){
   };
   const ok=await saveRelatorio(rep);
   if(ok){
-    showPopup('report','Relatório Submetido! 📋','O teu relatório foi enviado com sucesso e aguarda validação do supervisor.');
+    showPopup('report','Relatório Submetido! 📋','O teu relatório foi enviado. Vai ao separador Check-in para fazer o check-out.');
     ['f-visitantes','f-interacoes','f-amostragens','f-vendas'].forEach(id=>$(id).value=0);
     SKUS.forEach(s=>{$('f-stock-ini-'+s).value=0;$('f-stock-fim-'+s).value=0;});
     $('f-obs').value='';
+    // Auto-show checkout card
+    const coCard=$('checkout-card');
+    if(coCard&&coCard.dataset.ciId){
+      coCard.style.display='block';
+      $('co-hora-saida').value=nowHHMM();
+      calcHorasAuto();
+    }
     _submitting=false;
   }else{
     _submitting=false;
