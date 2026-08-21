@@ -519,7 +519,7 @@ tr:hover td{background:var(--yellow-light)}
         <div class="grid">
           <div class="field"><label>Visitantes na Loja</label><input type="number" min="0" id="f-visitantes" value="0"></div>
           <div class="field"><label>Abordagens / Interacções</label><input type="number" min="0" id="f-interacoes" value="0"></div>
-          <div class="field"><label>Latas Vendidas</label><input type="number" min="0" id="f-vendas-lata" value="0"></div>
+          <div class="field"><label>Six Packs Vendidos</label><input type="number" min="0" id="f-vendas-lata" value="0"></div>
           <div class="field"><label>Concorrência no PDV?</label><select id="f-concorrencia"><option value="">—</option><option>Sim</option><option>Não</option></select></div>
         </div>
       </div>
@@ -1525,7 +1525,7 @@ function openModal(repId){
     <div class="modal-row"><span class="modal-row-label">Visitantes</span>${r.visitantes}</div>
     <div class="modal-row"><span class="modal-row-label">Interacções</span>${r.interacoes}</div>
     <div class="modal-row"><span class="modal-row-label">Abordagens Feitas</span>${r.amostragens}</div>
-    <div class="modal-row"><span class="modal-row-label">Latas Vendidas</span><strong style="color:var(--red)">${r.vendasLata||r.vendas||0}</strong></div>
+    <div class="modal-row"><span class="modal-row-label">Six Packs Vendidos</span><strong style="color:var(--red)">${r.vendasLata||r.vendas||0}</strong></div>
     <div class="modal-row"><span class="modal-row-label">Conversão</span>${r.interacoes?((r.vendas/r.interacoes)*100).toFixed(1)+'%':'—'}</div>
     <div class="modal-row"><span class="modal-row-label">Concorrência</span>${r.concorrencia||'—'}</div>
     <div class="modal-section">Stock</div>
@@ -1559,7 +1559,7 @@ function openModal(repId){
         <div class="field"><label>Visitantes</label><input type="number" min="0" id="m-visitantes" value="${r.visitantes}"></div>
         <div class="field"><label>Interacções</label><input type="number" min="0" id="m-interacoes" value="${r.interacoes}"></div>
         <div class="field"><label>Abordagens Feitas</label><input type="number" min="0" id="m-amostragens" value="${r.amostragens}"></div>
-        <div class="field"><label>Latas Vendidas</label><input type="number" min="0" id="m-vendas-lata" value="${r.vendasLata||r.vendas||0}"></div>
+        <div class="field"><label>Six Packs Vendidos</label><input type="number" min="0" id="m-vendas-lata" value="${r.vendasLata||r.vendas||0}"></div>
         <div class="field"><label>Lata Ini</label><input type="number" min="0" id="m-lata-ini" value="${r.stockIni&&r.stockIni.Lata||0}"></div>
         <div class="field"><label>Lata Fim</label><input type="number" min="0" id="m-lata-fim" value="${r.stockFim&&r.stockFim.Lata||0}"></div>
         <div class="field"><label>Garrafa Ini</label><input type="number" min="0" id="m-garf-ini" value="${r.stockIni&&r.stockIni.Garrafa||0}"></div>
@@ -1926,7 +1926,7 @@ async function renderCliente(){
   const tI=approved.reduce((s,r)=>s+(r.interacoes||0),0);
   const conv=tI?((tV/tI)*100).toFixed(1):'0.0';
   $('c-hero-kpis').innerHTML=`
-    <div class="client-kpi"><div class="client-kpi-val">${tV}</div><div class="client-kpi-lbl">Latas Vendidas</div></div>
+    <div class="client-kpi"><div class="client-kpi-val">${tV}</div><div class="client-kpi-lbl">Six Packs Vendidos</div></div>
     <div class="client-kpi"><div class="client-kpi-val">${tI.toLocaleString()}</div><div class="client-kpi-lbl">Abordagens</div></div>
     <div class="client-kpi"><div class="client-kpi-val">${conv}%</div><div class="client-kpi-lbl">Taxa de Conversão</div></div>
   `;
@@ -2093,7 +2093,7 @@ function renderClienteCharts(data){
   $('c-resumo').innerHTML=`
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${pdvsA}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">PDVs Activados</div></div>
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${promos}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Promotoras</div></div>
-    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--warn)">${tV}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Latas Vendidas</div></div>
+    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--warn)">${tV}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Six Packs Vendidos</div></div>
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${conc}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Ocorrências Concorrência</div></div>
 
   `;
