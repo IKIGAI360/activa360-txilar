@@ -519,7 +519,7 @@ tr:hover td{background:var(--yellow-light)}
         <div class="grid">
           <div class="field"><label>Visitantes na Loja</label><input type="number" min="0" id="f-visitantes" value="0"></div>
           <div class="field"><label>Abordagens / Interacções</label><input type="number" min="0" id="f-interacoes" value="0"></div>
-          <div class="field"><label>Vendas Convertidas</label><input type="number" min="0" id="f-vendas" value="0"></div>
+          <div class="field"><label>Latas Vendidas</label><input type="number" min="0" id="f-vendas-lata" value="0"></div>
           <div class="field"><label>Concorrência no PDV?</label><select id="f-concorrencia"><option value="">—</option><option>Sim</option><option>Não</option></select></div>
         </div>
       </div>
@@ -793,7 +793,6 @@ tr:hover td{background:var(--yellow-light)}
           <div class="chart-box"><div class="chart-title">Tendência de Vendas</div><canvas id="c-chart-trend"></canvas></div>
         </div>
         <div class="charts-grid">
-          <div class="chart-box"><div class="chart-title">Mix SKU — Lata vs Garrafa</div><canvas id="c-chart-sku"></canvas></div>
           <div class="chart-box"><div class="chart-title">Activações por Região</div><canvas id="c-chart-reg"></canvas></div>
         </div>
 
@@ -942,7 +941,8 @@ function mapR(r){return{
   stockIni:r.stock_ini||{},stockFim:r.stock_fim||{},consumoTotal:r.consumo_total,
   precos:r.precos||{},validades:r.validades||{},brindesTurno:r.brindes_turno||{},
   visitantes:r.visitantes,interacoes:r.interacoes,abordagens:r.amostragens,
-  vendas:r.vendas,concorrencia:r.concorrencia,
+  vendas:r.vendas_lata||r.vendas||0,
+  vendasLata:r.vendas_lata||0,concorrencia:r.concorrencia,
   fotoSetup:r.foto_setup,fotoPdv:r.foto_pdv,fotoGeleira:r.foto_geleira,
   fotoDisplay:r.foto_display,fotoInteracao:r.foto_interacao,fotoPreco:r.foto_preco,
   obs:r.obs,notaSupervisor:r.nota_supervisor,
@@ -985,7 +985,8 @@ async function saveRelatorio(r){
     stock_ini:r.stockIni,stock_fim:r.stockFim,consumo_total:r.consumoTotal,
     precos:r.precos,validades:r.validades,brindes_turno:r.brindesTurno,
     visitantes:r.visitantes,interacoes:r.interacoes,abordagens:r.amostragens,
-    vendas:r.vendas,concorrencia:r.concorrencia,
+    vendas:r.vendasLata||r.vendas||0,
+    vendas_lata:r.vendasLata||0,concorrencia:r.concorrencia,
     foto_setup:r.fotoSetup,foto_pdv:r.fotoPdv,foto_geleira:r.fotoGeleira,
     foto_display:r.fotoDisplay,foto_interacao:r.fotoInteracao,foto_preco:r.fotoPreco,
     obs:r.obs,submetido_em:r.submetidoEm
@@ -1002,7 +1003,8 @@ async function updateRelatorio(r){
     visitantes:r.visitantes,
     interacoes:r.interacoes,
     amostragens:r.amostragens,
-    vendas:r.vendas,
+    vendas:r.vendasLata||r.vendas||0,
+    vendas_lata:r.vendasLata||0,
     concorrencia:r.concorrencia,
     obs:r.obs,
     stock_ini:r.stockIni,
@@ -1099,6 +1101,7 @@ async function onTabOpen(tab){
   if(tab==='s-metas'){await loadMetas();renderMetasForm();}
   if(tab==='s-pdv-config'){await loadPDVConfig();renderPDVConfig();}
   if(tab==='p-historico')renderPHistorico();
+  if(tab==='p-checkin'){await loadAll();await initPromotoraLayer();}
 }
 
 // ══ INIT ══
@@ -1150,6 +1153,10 @@ async function initPromotoraLayer(){
     r.data===today
   );
 
+  // Remove any previous status banner
+  const oldBanner=document.getElementById('ci-status-banner');
+  if(oldBanner) oldBanner.remove();
+
   if(openCheckin){
     // Pre-fill report with check-in data
     $('f-hora-inicio').value=openCheckin.horaEntrada||'';
@@ -1158,16 +1165,45 @@ async function initPromotoraLayer(){
     // Store checkin id for checkout
     $('checkout-card').dataset.ciId=openCheckin.id;
 
+    // DISABLE check-in button — turno already open
+    const ciBtn=document.querySelector('#tab-p-checkin .btn-primary.full');
+    if(ciBtn){
+      ciBtn.disabled=true;
+      ciBtn.style.opacity='0.4';
+      ciBtn.style.cursor='not-allowed';
+      ciBtn.textContent='⛔ Já tens um turno aberto hoje';
+    }
+
+    // Show status banner
+    const banner=document.createElement('div');
+    banner.id='ci-status-banner';
+    banner.style.cssText='background:var(--yellow-light);border:1.5px solid var(--yellow-dark);border-radius:10px;padding:14px 16px;margin-bottom:12px;font-size:13px;line-height:1.6';
+
     if(reportHoje){
-      // Report done → show checkout card
+      // Report done → show checkout card + banner
+      banner.innerHTML=`<strong>✅ Turno em curso — Relatório submetido</strong><br>Entrada: <strong>${openCheckin.horaEntrada}</strong> · ${openCheckin.pdv}<br>Faz o <strong>check-out</strong> abaixo para concluir o turno.`;
       const card=$('checkout-card');
       card.style.display='block';
       $('co-hora-saida').value=nowHHMM();
       calcHorasAuto();
-      showToast('Relatório submetido ✅ Podes fazer o check-out.');
     } else {
-      // No report yet → guide to report tab
-      showToast('Check-in feito ✅ Submete o relatório antes do check-out.');
+      banner.innerHTML=`<strong>⏳ Turno em curso — Relatório pendente</strong><br>Entrada: <strong>${openCheckin.horaEntrada}</strong> · ${openCheckin.pdv}<br>Vai ao separador <strong>Relatório</strong> e submete antes de fazer o check-out.`;
+    }
+
+    // Insert banner at top of check-in tab
+    const checkinTab=$('tab-p-checkin');
+    checkinTab.insertBefore(banner, checkinTab.firstChild);
+
+  } else if(reportHoje && !checkins.find(c=>c.promotaId===currentPromoId&&c.data===today&&c.checkout?.horaSaida)){
+    // Edge case: report submitted but no checkout yet (shouldn't happen normally)
+  } else {
+    // No open check-in — enable check-in button normally
+    const ciBtn=document.querySelector('#tab-p-checkin .btn-primary.full');
+    if(ciBtn){
+      ciBtn.disabled=false;
+      ciBtn.style.opacity='1';
+      ciBtn.style.cursor='pointer';
+      ciBtn.textContent='✅ Registar Check-in';
     }
   }
   // Make selects read-only visually
@@ -1210,15 +1246,18 @@ function calcBrindesDiffSimple(){
   if(el) el.value=diffs.length?diffs.join(' · '):'✅ Sem diferença';
 }
 async function doCheckin(){
-  console.log('doCheckin START');
   const pId=currentPromoId||$('ci-nome').value;
-  console.log('pId:', pId);
   if(!pId){showPopup('error','Erro','Não foi possível identificar a promotora. Tenta sair e entrar novamente.');return;}
-  // Reload promotoras to get latest PDV assignment
   await loadAll();
   const p=promotoras.find(x=>x.id===pId);
-  console.log('promotora:', p);
   if(!p){showPopup('error','Erro','Promotora não encontrada. Tenta sair e entrar novamente.');return;}
+  // Block if turno already open today
+  const today=todayISO();
+  const turnoAberto=checkins.find(c=>c.promotaId===pId&&c.data===today&&!c.checkout?.horaSaida);
+  if(turnoAberto){
+    showPopup('error','Turno Já Aberto','Já tens um turno em curso hoje desde as '+turnoAberto.horaEntrada+'. Submete o relatório e faz o check-out primeiro.');
+    return;
+  }
   const ci={
     id:'ci_'+Date.now(),promotaId:pId,nome:p.nome,pdv:p.pdv,
     pdvRegiao:ESTABELECIMENTOS.find(e=>e.nome===p.pdv)?.regiao||'',
@@ -1239,6 +1278,9 @@ async function doCheckin(){
     $('co-hora-saida').value=nowHHMM();calcHorasAuto();
     $('f-nome').value=pId;$('f-pdv-display').value=p.pdv;
     $('f-hora-inicio').value=ci.horaEntrada;$('f-turno').value=ci.turno;
+    // Refresh layer to show "turno aberto" banner and disable check-in button
+    await loadAll();
+    await initPromotoraLayer();
   }else showPopup('error','Erro no Check-in','Não foi possível registar o check-in. Verifica a ligação e tenta novamente.');
 }
 async function doCheckout(){
@@ -1294,6 +1336,8 @@ async function submitReport(){
     const ofe=parseInt(document.getElementById('f-br-ofe-'+slugB(b))?.value)||0;
     bT[b]={recebidos:rec,oferecidos:ofe,diferenca:rec-ofe};
   });
+  // Auto-fill hora fim with current time if empty
+  if(!$('f-hora-fim').value) $('f-hora-fim').value=nowHHMM();
   const hi=$('f-hora-inicio').value,hf=$('f-hora-fim').value;
   const rep={
     id:'r_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
@@ -1306,7 +1350,8 @@ async function submitReport(){
     visitantes:parseInt($('f-visitantes').value)||0,
     interacoes:parseInt($('f-interacoes').value)||0,
     abordagens:parseInt($('f-interacoes').value)||0,
-    vendas:parseInt($('f-vendas').value)||0,
+    vendasLata:parseInt($('f-vendas-lata').value)||0,
+    vendas:parseInt($('f-vendas-lata').value)||0,
     concorrencia:$('f-concorrencia').value,
     fotoSetup:$('f-foto-setup').checked,fotoPdv:$('f-foto-pdv').checked,
     fotoGeleira:$('f-foto-geleira').checked,fotoDisplay:$('f-foto-display').checked,
@@ -1316,16 +1361,19 @@ async function submitReport(){
   const ok=await saveRelatorio(rep);
   if(ok){
     showPopup('report','Relatório Submetido! 📋','O teu relatório foi enviado. Vai ao separador Check-in para fazer o check-out.');
-    ['f-visitantes','f-interacoes','f-amostragens','f-vendas'].forEach(id=>$(id).value=0);
+    ['f-visitantes','f-interacoes','f-amostragens','f-vendas-lata'].forEach(id=>{ const el=$(id); if(el) el.value=0; });
     SKUS.forEach(s=>{$('f-stock-ini-'+s).value=0;$('f-stock-fim-'+s).value=0;});
     $('f-obs').value='';
-    // Auto-show checkout card
+    // Switch to check-in tab and show checkout card
     const coCard=$('checkout-card');
     if(coCard&&coCard.dataset.ciId){
       coCard.style.display='block';
       $('co-hora-saida').value=nowHHMM();
       calcHorasAuto();
     }
+    // Switch to check-in tab so promotora sees the checkout card
+    const checkinTabBtn=document.querySelector('#layer-promotora .inner-tab[data-tab="p-checkin"]');
+    if(checkinTabBtn) checkinTabBtn.click();
     _submitting=false;
   }else{
     _submitting=false;
@@ -1477,7 +1525,7 @@ function openModal(repId){
     <div class="modal-row"><span class="modal-row-label">Visitantes</span>${r.visitantes}</div>
     <div class="modal-row"><span class="modal-row-label">Interacções</span>${r.interacoes}</div>
     <div class="modal-row"><span class="modal-row-label">Abordagens Feitas</span>${r.amostragens}</div>
-    <div class="modal-row"><span class="modal-row-label">Vendas</span><strong style="color:var(--red)">${r.vendas}</strong></div>
+    <div class="modal-row"><span class="modal-row-label">Latas Vendidas</span><strong style="color:var(--red)">${r.vendasLata||r.vendas||0}</strong></div>
     <div class="modal-row"><span class="modal-row-label">Conversão</span>${r.interacoes?((r.vendas/r.interacoes)*100).toFixed(1)+'%':'—'}</div>
     <div class="modal-row"><span class="modal-row-label">Concorrência</span>${r.concorrencia||'—'}</div>
     <div class="modal-section">Stock</div>
@@ -1511,7 +1559,7 @@ function openModal(repId){
         <div class="field"><label>Visitantes</label><input type="number" min="0" id="m-visitantes" value="${r.visitantes}"></div>
         <div class="field"><label>Interacções</label><input type="number" min="0" id="m-interacoes" value="${r.interacoes}"></div>
         <div class="field"><label>Abordagens Feitas</label><input type="number" min="0" id="m-amostragens" value="${r.amostragens}"></div>
-        <div class="field"><label>Vendas</label><input type="number" min="0" id="m-vendas" value="${r.vendas}"></div>
+        <div class="field"><label>Latas Vendidas</label><input type="number" min="0" id="m-vendas-lata" value="${r.vendasLata||r.vendas||0}"></div>
         <div class="field"><label>Lata Ini</label><input type="number" min="0" id="m-lata-ini" value="${r.stockIni&&r.stockIni.Lata||0}"></div>
         <div class="field"><label>Lata Fim</label><input type="number" min="0" id="m-lata-fim" value="${r.stockFim&&r.stockFim.Lata||0}"></div>
         <div class="field"><label>Garrafa Ini</label><input type="number" min="0" id="m-garf-ini" value="${r.stockIni&&r.stockIni.Garrafa||0}"></div>
@@ -1555,7 +1603,8 @@ async function saveModal(newStatus){
   r.visitantes=parseInt($('m-visitantes').value)||0;
   r.interacoes=parseInt($('m-interacoes').value)||0;
   r.amostragens=parseInt($('m-amostragens').value)||0;
-  r.vendas=parseInt($('m-vendas').value)||0;
+  r.vendasLata=parseInt($('m-vendas-lata').value)||0;
+  r.vendas=r.vendasLata;
   r.concorrencia=$('m-concorrencia').value;
   r.obs=$('m-obs').value;
   r.notaSupervisor=$('m-nota').value||'';
@@ -1646,7 +1695,7 @@ function renderSOverview(){
     <div class="kpi light"><div class="kpi-val">${[...new Set(reports.map(r=>r.promotaId))].length}</div><div class="kpi-lbl">Promotoras</div></div>
   `;
   destroyCharts(sCharts);
-  const pdvT={};reports.forEach(r=>pdvT[r.pdv]=(pdvT[r.pdv]||0)+r.vendas);
+  const pdvT={};reports.forEach(r=>pdvT[r.pdv]=(pdvT[r.pdv]||0)+(r.vendasLata||r.vendas||0));
   const pdvL=Object.keys(pdvT).sort((a,b)=>pdvT[b]-pdvT[a]).slice(0,8);
   sCharts.pdv=new Chart($('s-chart-pdv'),{type:'bar',data:{labels:pdvL,datasets:[{data:pdvL.map(l=>pdvT[l]),backgroundColor:PALETTE[0],borderRadius:4}]},options:chartOpts(true)});
   const skuT={Lata:0,Garrafa:0};
@@ -1871,18 +1920,14 @@ async function renderCliente(){
   if(cFilReg) cFilReg.innerHTML='<option value="">Todas</option>'+regs.map(r=>`<option>${r}</option>`).join('');
 
   const datas=approved.map(r=>r.data).sort();
-  const hoje=todayISO();
-  const apvHoje=approved.filter(r=>r.data===hoje).length;
-  $('c-periodo').textContent=`Campanha: ${datas[0]} → ${datas[datas.length-1]} · ${approved.length} turnos validados (${apvHoje} hoje)`;
+  $('c-periodo').textContent=`Campanha: ${datas[0]} → ${datas[datas.length-1]}`;
 
-  const tV=approved.reduce((s,r)=>s+r.vendas,0);
-  const tI=approved.reduce((s,r)=>s+r.interacoes,0);
-  const tA=approved.reduce((s,r)=>s+r.amostragens,0);
+  const tV=approved.reduce((s,r)=>s+(r.vendasLata||r.vendas||0),0);
+  const tI=approved.reduce((s,r)=>s+(r.interacoes||0),0);
   const conv=tI?((tV/tI)*100).toFixed(1):'0.0';
   $('c-hero-kpis').innerHTML=`
-    <div class="client-kpi"><div class="client-kpi-val">${tV}</div><div class="client-kpi-lbl">Vendas Totais</div></div>
+    <div class="client-kpi"><div class="client-kpi-val">${tV}</div><div class="client-kpi-lbl">Latas Vendidas</div></div>
     <div class="client-kpi"><div class="client-kpi-val">${tI.toLocaleString()}</div><div class="client-kpi-lbl">Abordagens</div></div>
-    <div class="client-kpi"><div class="client-kpi-val">${tA}</div><div class="client-kpi-lbl">Six Pack Amostrados</div></div>
     <div class="client-kpi"><div class="client-kpi-val">${conv}%</div><div class="client-kpi-lbl">Taxa de Conversão</div></div>
   `;
 
@@ -1943,7 +1988,7 @@ function renderClienteTabela(){
   // Add actual data from filtered reports
   filtered.forEach(r=>{
     if(!pdvMap[r.pdv]) return; // skip PDVs not in current filter
-    pdvMap[r.pdv].vendas+=r.vendas;
+    pdvMap[r.pdv].vendas+=(r.vendasLata||r.vendas||0);
     pdvMap[r.pdv].interacoes+=r.interacoes;
     pdvMap[r.pdv].amostragens+=r.amostragens;
   });
@@ -1959,8 +2004,8 @@ function renderClienteTabela(){
     const rDate=new Date(r.data);
     if(!weekMap[r.pdv])weekMap[r.pdv]=0;
     if(!monthMap[r.pdv])monthMap[r.pdv]=0;
-    if(rDate>=monday) weekMap[r.pdv]+=r.vendas;
-    if(rDate.getMonth()===today.getMonth()&&rDate.getFullYear()===today.getFullYear()) monthMap[r.pdv]+=r.vendas;
+    if(rDate>=monday) weekMap[r.pdv]+=(r.vendasLata||r.vendas||0);
+    if(rDate.getMonth()===today.getMonth()&&rDate.getFullYear()===today.getFullYear()) monthMap[r.pdv]+=(r.vendasLata||r.vendas||0);
   });
 
   const sorted=Object.entries(pdvMap).sort((a,b)=>b[1].vendas-a[1].vendas);
@@ -2014,7 +2059,7 @@ function renderClienteCharts(data){
   destroyCharts(cCharts);
   if(!data.length) return;
 
-  const pdvT={};data.forEach(r=>pdvT[r.pdv]=(pdvT[r.pdv]||0)+r.vendas);
+  const pdvT={};data.forEach(r=>pdvT[r.pdv]=(pdvT[r.pdv]||0)+(r.vendasLata||r.vendas||0));
   const sorted=Object.entries(pdvT).sort((a,b)=>b[1]-a[1]);
   const pdvL=sorted.map(e=>e[0]).slice(0,8);
   cCharts.pdv=new Chart($('c-chart-pdv'),{type:'bar',data:{labels:pdvL,datasets:[{data:pdvL.map(l=>pdvT[l]),backgroundColor:PALETTE[0],borderRadius:4}]},options:chartOpts(true)});
@@ -2023,9 +2068,7 @@ function renderClienteCharts(data){
   const dates=Object.keys(dT).sort();
   cCharts.trend=new Chart($('c-chart-trend'),{type:'line',data:{labels:dates,datasets:[{data:dates.map(d=>dT[d]),borderColor:PALETTE[1],backgroundColor:'rgba(224,172,0,0.12)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:PALETTE[1]}]},options:chartOpts(false)});
 
-  const skuT={Lata:0,Garrafa:0};
-  data.forEach(r=>SKUS.forEach(s=>skuT[s]+=Math.max(0,(r.stockIni?.[s]||0)-(r.stockFim?.[s]||0))));
-  cCharts.sku=new Chart($('c-chart-sku'),{type:'doughnut',data:{labels:['Lata','Garrafa'],datasets:[{data:[skuT.Lata,skuT.Garrafa],backgroundColor:[PALETTE[0],PALETTE[1]]}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{family:'Inter'}}}}}});
+  // SKU chart removed from client - internal use only
 
   const rT={};data.forEach(r=>rT[r.regiao]=(rT[r.regiao]||0)+r.vendas);
   cCharts.reg=new Chart($('c-chart-reg'),{type:'bar',data:{labels:Object.keys(rT),datasets:[{data:Object.values(rT),backgroundColor:PALETTE[2],borderRadius:4}]},options:chartOpts(false)});
@@ -2050,9 +2093,9 @@ function renderClienteCharts(data){
   $('c-resumo').innerHTML=`
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${pdvsA}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">PDVs Activados</div></div>
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${promos}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Promotoras</div></div>
-    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--warn)">${consumo}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Unid. Amostradas</div></div>
+    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--warn)">${tV}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Latas Vendidas</div></div>
     <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--red)">${conc}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Ocorrências Concorrência</div></div>
-    <div><div style="font-size:22px;font-weight:900;font-family:'Poppins',sans-serif;color:var(--ink)">${data.length}</div><div style="font-size:10px;text-transform:uppercase;color:var(--muted)">Activações Validadas</div></div>
+
   `;
 }
 // ══ PDV CONFIG ══
