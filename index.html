@@ -1197,13 +1197,37 @@ async function initPromotoraLayer(){
   } else if(reportHoje && !checkins.find(c=>c.promotaId===currentPromoId&&c.data===today&&c.checkout?.horaSaida)){
     // Edge case: report submitted but no checkout yet (shouldn't happen normally)
   } else {
-    // No open check-in — enable check-in button normally
-    const ciBtn=document.querySelector('#tab-p-checkin .btn-primary.full');
-    if(ciBtn){
-      ciBtn.disabled=false;
-      ciBtn.style.opacity='1';
-      ciBtn.style.cursor='pointer';
-      ciBtn.textContent='✅ Registar Check-in';
+    // Check if turno was completed today (has checkout)
+    const turnoFechado=checkins.find(c=>
+      c.promotaId===currentPromoId &&
+      c.data===today &&
+      c.checkout?.horaSaida
+    );
+    if(turnoFechado){
+      // Show completed banner
+      const banner=document.createElement('div');
+      banner.id='ci-status-banner';
+      banner.style.cssText='background:var(--goodl,#D4EFDF);border:1.5px solid #2E8B57;border-radius:10px;padding:14px 16px;margin-bottom:12px;font-size:13px;line-height:1.6';
+      banner.innerHTML=`<strong>✅ Turno concluído!</strong><br>Entrada: <strong>${turnoFechado.horaEntrada}</strong> · Saída: <strong>${turnoFechado.checkout.horaSaida}</strong> · ${turnoFechado.horasCalc||turnoFechado.checkout.horasCalc||''}<br>O teu turno de hoje está completo.`;
+      const checkinTab=$('tab-p-checkin');
+      checkinTab.insertBefore(banner, checkinTab.firstChild);
+      // Also disable checkin button
+      const ciBtn=document.querySelector('#tab-p-checkin .btn-primary.full');
+      if(ciBtn){
+        ciBtn.disabled=true;
+        ciBtn.style.opacity='0.4';
+        ciBtn.style.cursor='not-allowed';
+        ciBtn.textContent='✅ Turno de hoje concluído';
+      }
+    } else {
+      // No check-in today — enable button normally
+      const ciBtn=document.querySelector('#tab-p-checkin .btn-primary.full');
+      if(ciBtn){
+        ciBtn.disabled=false;
+        ciBtn.style.opacity='1';
+        ciBtn.style.cursor='pointer';
+        ciBtn.textContent='✅ Registar Check-in';
+      }
     }
   }
   // Make selects read-only visually
@@ -1303,6 +1327,9 @@ async function doCheckout(){
   if(ok){
     showPopup('checkout','Check-out Registado! 🏁','O teu turno ficou concluído. Obrigada pelo trabalho!');
     $('checkout-card').style.display='none';
+    // Refresh banner to show turno concluído
+    await loadAll();
+    await initPromotoraLayer();
   } else {
     showPopup('error','Erro no Check-out','Não foi possível registar o check-out. Verifica a ligação e tenta novamente.');
   }
