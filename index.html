@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ACTIVA360 — TXILAR · IKIGAI360</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js">
+</script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
 :root{
   --red:#E4002B;       /* destaques, alertas, badges danger */
@@ -558,6 +560,7 @@ tr:hover td{background:var(--yellow-light)}
       <button class="inner-tab" data-tab="s-registos">Registos</button>
       <button class="inner-tab" data-tab="s-metas">Metas</button>
       <button class="inner-tab" data-tab="s-pdv-config">Lojas</button>
+      <button class="inner-tab" data-tab="s-relatorio-ppt">📥 Relatório PPT</button>
     </div>
     <div class="tab-content active" id="tab-s-equipa">
       <div class="card">
@@ -677,6 +680,60 @@ tr:hover td{background:var(--yellow-light)}
       </table></div></div>
     </div>
   </div>
+
+    <div class="tab-content" id="tab-s-relatorio-ppt">
+      <div class="card">
+        <div class="card-title"><div class="icon accent">📊</div> Gerador de Relatório Semanal PPT</div>
+        <p style="font-size:13px;color:var(--ink2);margin-bottom:18px;line-height:1.6">
+          Selecciona o período, revê os comentários gerados automaticamente e descarrega o PPT pronto a enviar ao cliente. Só tens de inserir as fotos no último slide.
+        </p>
+
+        <!-- PERIODO -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px">
+          <div class="field" style="margin:0">
+            <label>Data Início</label>
+            <input type="date" id="ppt-data-ini">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Data Fim</label>
+            <input type="date" id="ppt-data-fim">
+          </div>
+          <button class="btn-sm" onclick="pptSetSemana()">Esta Semana</button>
+          <button class="btn-primary" onclick="pptPreparar()" id="ppt-btn-prep">🔍 Carregar Dados</button>
+        </div>
+
+        <!-- PREVIEW DADOS -->
+        <div id="ppt-preview" style="display:none">
+          <div id="ppt-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px"></div>
+
+          <!-- COMENTARIOS -->
+          <div style="margin-bottom:16px">
+            <label style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:8px">Destaques da Semana</label>
+            <div id="ppt-destaques-list"></div>
+            <button class="btn-sm" onclick="pptAddDestaque()" style="margin-top:8px">+ Adicionar destaque</button>
+          </div>
+
+          <div style="margin-bottom:20px">
+            <label style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:8px">Próximos Passos</label>
+            <div id="ppt-proximos-list"></div>
+            <button class="btn-sm" onclick="pptAddProximo()" style="margin-top:8px">+ Adicionar passo</button>
+          </div>
+
+          <!-- GENERATE -->
+          <button class="btn-primary" onclick="pptGerar()" id="ppt-btn-gerar" style="width:100%;padding:14px;font-size:15px">
+            📥 Gerar e Descarregar PPT
+          </button>
+          <p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">
+            O PPT inclui 7 slides: Capa, KPIs, Resultados por PDV, Metas, Brindes, Destaques e Registo Fotográfico (com placeholders por PDV)
+          </p>
+        </div>
+
+        <div id="ppt-loading" style="display:none;text-align:center;padding:30px">
+          <div style="font-size:32px;margin-bottom:10px">⏳</div>
+          <div id="ppt-loading-msg" style="font-size:14px;color:var(--muted)">A carregar dados...</div>
+        </div>
+      </div>
+    </div>
 
     <div class="tab-content" id="tab-s-pdv-config">
       <div class="card">
@@ -1100,6 +1157,7 @@ async function onTabOpen(tab){
   if(tab==='s-registos'){populateSFilters();renderSRegistos();}
   if(tab==='s-metas'){await loadMetas();renderMetasForm();}
   if(tab==='s-pdv-config'){await loadPDVConfig();renderPDVConfig();}
+  if(tab==='s-relatorio-ppt'){pptSetSemana();}
   if(tab==='p-historico')renderPHistorico();
   if(tab==='p-checkin'){await loadAll();await initPromotoraLayer();}
 }
@@ -2308,6 +2366,359 @@ async function apagarSeleccionados(){
   else showPopup('error','Limpeza Parcial',`${apagados} apagado(s), ${erros} erro(s).`);
 }
 
+
+// ══ PPT GENERATOR ══
+const RED_H='E4002B',YELLOW_H='FFC600',DARK_H='1A1A1A',WHITE_H='FFFFFF',MUTED_H='767676',CREAM_H='FFFEF8';
+const META_SEM=200,META_MES=800;
+
+let _pptDados=null;
+
+function pptSetSemana(){
+  const hoje=new Date();
+  const dow=hoje.getDay()||7;
+  const seg=new Date(hoje);seg.setDate(hoje.getDate()-dow+1);
+  const dom=new Date(seg);dom.setDate(seg.getDate()+6);
+  $('ppt-data-ini').value=seg.toISOString().slice(0,10);
+  $('ppt-data-fim').value=dom.toISOString().slice(0,10);
+}
+
+function pptFmtData(d){
+  const [y,m,day]=d.split('-');
+  const ms=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return `${parseInt(day)} ${ms[parseInt(m)-1]} ${y}`;
+}
+
+function pptBrTot(bt){
+  if(!bt)return 0;
+  return BRINDES_TIPOS.reduce((s,b)=>{
+    const v=bt[b];
+    if(v&&typeof v==='object')return s+(v.oferecidos||0);
+    if(typeof v==='number')return s+v;
+    return s;
+  },0);
+}
+
+async function pptPreparar(){
+  const ini=$('ppt-data-ini').value;
+  const fim=$('ppt-data-fim').value;
+  if(!ini||!fim){showPopup('error','Datas em falta','Selecciona o período antes de continuar.');return;}
+
+  $('ppt-preview').style.display='none';
+  $('ppt-loading').style.display='block';
+  $('ppt-loading-msg').textContent='A carregar dados do Supabase...';
+
+  try{
+    // Fetch approved reports for period
+    const [rSem,rMes,metas]=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/relatorios?status=eq.approved&data=gte.${ini}&data=lte.${fim}&order=data.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/relatorios?status=eq.approved&data=gte.${ini.slice(0,7)+'-01'}&data=lte.${fim.slice(0,7)+'-31'}&order=data.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/metas`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
+    ]);
+
+    if(!rSem.length){
+      $('ppt-loading').style.display='none';
+      showPopup('error','Sem Dados','Não há relatórios aprovados neste período.');
+      return;
+    }
+
+    const metasMap={};
+    if(Array.isArray(metas)) metas.forEach(m=>metasMap[m.pdv]=m.meta||META_SEM);
+
+    // Aggregate
+    const pdvSem={};
+    rSem.forEach(r=>{
+      if(!pdvSem[r.pdv]) pdvSem[r.pdv]={regiao:r.regiao||'Sul',vendas:0,interacoes:0,brindes:0};
+      pdvSem[r.pdv].vendas+=(r.vendas_lata||r.vendas||0);
+      pdvSem[r.pdv].interacoes+=(r.interacoes||0);
+      pdvSem[r.pdv].brindes+=pptBrTot(r.brindes_turno);
+    });
+    const pdvMes={};
+    rMes.forEach(r=>{
+      if(!pdvMes[r.pdv]) pdvMes[r.pdv]=0;
+      pdvMes[r.pdv]+=(r.vendas_lata||r.vendas||0);
+    });
+
+    const totalVendas=Object.values(pdvSem).reduce((s,p)=>s+p.vendas,0);
+    const totalAbord=Object.values(pdvSem).reduce((s,p)=>s+p.interacoes,0);
+    const totalBrindes=Object.values(pdvSem).reduce((s,p)=>s+p.brindes,0);
+    const taxaConv=totalAbord>0?((totalVendas/totalAbord)*100).toFixed(1)+'%':'—';
+    const totalMes=Object.values(pdvMes).reduce((s,v)=>s+v,0);
+    const pdvsActivos=Object.values(pdvSem).filter(p=>p.vendas>0).length;
+
+    const brindesPorTipo={};
+    BRINDES_TIPOS.forEach(b=>brindesPorTipo[b]=0);
+    rSem.forEach(r=>{
+      if(!r.brindes_turno)return;
+      BRINDES_TIPOS.forEach(b=>{
+        const v=r.brindes_turno[b];
+        if(v&&typeof v==='object')brindesPorTipo[b]+=(v.oferecidos||0);
+        else if(typeof v==='number')brindesPorTipo[b]+=v;
+      });
+    });
+
+    const pdvsOrdenados=Object.entries(pdvSem)
+      .sort((a,b)=>b[1].vendas-a[1].vendas)
+      .map(([nome,d])=>({nome,...d,metaSem:metasMap[nome]||META_SEM,vendasMes:pdvMes[nome]||0}));
+
+    const hoje=new Date();
+    const fimD=new Date(fim);
+    const diasRest=Math.max(0,Math.ceil((fimD-hoje)/86400000));
+
+    // Auto-generate comentarios
+    const destaques=[];
+    if(pdvsOrdenados[0]&&pdvsOrdenados[0].vendas>0) destaques.push(`${pdvsOrdenados[0].nome} lidera com ${pdvsOrdenados[0].vendas} Six Packs vendidos`);
+    if(totalVendas>=META_SEM) destaques.push(`Meta semanal de ${META_SEM} SP atingida — ${Math.round((totalVendas/META_SEM)*100)}% de cumprimento`);
+    else destaques.push(`${totalVendas} de ${META_SEM} Six Packs vendidos — faltam ${META_SEM-totalVendas} SP para a meta semanal`);
+    const semVendas=pdvsOrdenados.filter(p=>p.vendas===0);
+    if(semVendas.length) destaques.push(`${semVendas.map(p=>p.nome).join(', ')} sem vendas registadas esta semana`);
+    destaques.push(`${totalAbord} consumidores abordados com taxa de conversão de ${taxaConv}`);
+    destaques.push(`${totalBrindes} brindes distribuídos em todos os PDVs`);
+
+    const proximos=[];
+    if(semVendas.length) proximos.push(`Reforçar activações em ${semVendas.slice(0,2).map(p=>p.nome).join(' e ')}`);
+    if(totalVendas<META_SEM) proximos.push(`Necessário mais ${META_SEM-totalVendas} SP para atingir a meta semanal`);
+    proximos.push('Avaliar abordagem nos PDVs com menor taxa de conversão');
+    proximos.push('Confirmar stock de brindes para a próxima semana');
+
+    _pptDados={ini,fim,totalVendas,totalAbord,taxaConv,totalBrindes,totalMes,pdvsActivos,pdvsTotal:pdvsOrdenados.length,pdvsOrdenados,brindesPorTipo,diasRest,destaques,proximos,semana:`${pptFmtData(ini)} – ${pptFmtData(fim)}`};
+
+    // Show preview KPIs
+    $('ppt-kpis').innerHTML=[
+      {l:'Six Packs Vendidos',v:totalVendas,c:'var(--red)'},
+      {l:'Abordagens',v:totalAbord,c:'var(--ink)'},
+      {l:'Taxa de Conversão',v:taxaConv,c:'var(--warn)'},
+      {l:'PDVs Activos',v:`${pdvsActivos}/${pdvsOrdenados.length}`,c:'var(--ink)'},
+    ].map(k=>`<div style="background:var(--line2);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:24px;font-weight:900;color:${k.c}">${k.v}</div>
+      <div style="font-size:10px;text-transform:uppercase;color:var(--muted);margin-top:4px">${k.l}</div>
+    </div>`).join('');
+
+    // Show editable comentarios
+    const mkList=(id,items,fn)=>{
+      document.getElementById(id).innerHTML=items.map((t,i)=>`
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">
+          <div style="background:var(--yellow);color:var(--ink);font-weight:900;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:6px">${i+1}</div>
+          <input type="text" value="${t.replace(/"/g,'&quot;')}" id="${id}-${i}" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+          <button onclick="document.getElementById('${id}-${i}').closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px">×</button>
+        </div>`).join('');
+    };
+    mkList('ppt-destaques-list',destaques);
+    mkList('ppt-proximos-list',proximos);
+
+    $('ppt-loading').style.display='none';
+    $('ppt-preview').style.display='block';
+
+  }catch(e){
+    $('ppt-loading').style.display='none';
+    showPopup('error','Erro','Não foi possível carregar os dados: '+e.message);
+  }
+}
+
+function pptReadList(id){
+  const items=[];
+  document.querySelectorAll(`[id^="${id}-"]`).forEach(el=>{ if(el.value.trim()) items.push(el.value.trim()); });
+  return items;
+}
+function pptAddDestaque(){ const l=document.getElementById('ppt-destaques-list'); const d=document.createElement('div'); d.style.cssText='display:flex;gap:8px;align-items:flex-start;margin-bottom:8px'; const n=l.children.length+1; d.innerHTML=`<div style="background:var(--yellow);color:var(--ink);font-weight:900;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:6px">${n}</div><input type="text" placeholder="Novo destaque..." style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px"><button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px">×</button>`; l.appendChild(d); }
+function pptAddProximo(){ const l=document.getElementById('ppt-proximos-list'); const d=document.createElement('div'); d.style.cssText='display:flex;gap:8px;align-items:flex-start;margin-bottom:8px'; const n=l.children.length+1; d.innerHTML=`<div style="background:var(--yellow);color:var(--ink);font-weight:900;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:6px">${n}</div><input type="text" placeholder="Novo passo..." style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px"><button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px">×</button>`; l.appendChild(d); }
+
+async function pptGerar(){
+  if(!_pptDados){showPopup('error','Sem dados','Carrega os dados primeiro.');return;}
+  const d=_pptDados;
+  const destaques=pptReadList('ppt-destaques');
+  const proximos=pptReadList('ppt-proximos');
+  // Read from inputs
+  const desEl=document.querySelectorAll('[id^="ppt-destaques-list-"]');
+  const prxEl=document.querySelectorAll('[id^="ppt-proximos-list-"]');
+  const desArr=[...desEl].map(e=>e.value).filter(Boolean);
+  const prxArr=[...prxEl].map(e=>e.value).filter(Boolean);
+  // Also read from non-indexed inputs added dynamically
+  const allDes=[...document.getElementById('ppt-destaques-list').querySelectorAll('input')].map(e=>e.value).filter(Boolean);
+  const allPrx=[...document.getElementById('ppt-proximos-list').querySelectorAll('input')].map(e=>e.value).filter(Boolean);
+
+  $('ppt-btn-gerar').disabled=true;
+  $('ppt-btn-gerar').textContent='⏳ A gerar PPT...';
+
+  try{
+    const pres=new PptxGenJS();
+    pres.layout='LAYOUT_WIDE';
+
+    function pct(v,t){return t>0?Math.min(100,Math.round((v/t)*100)):0;}
+
+    // ── SLIDE 1: CAPA ──
+    {const s=pres.addSlide();
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:5.5,h:7.5,fill:{color:YELLOW_H},line:{type:'none'}});
+    s.addShape(pres.ShapeType.rect,{x:5.5,y:0,w:7.8,h:7.5,fill:{color:WHITE_H},line:{type:'none'}});
+    s.addShape(pres.ShapeType.ellipse,{x:3.8,y:2.5,w:3.5,h:3.5,fill:{color:'FFC600',transparency:40},line:{type:'none'}});
+    s.addText('ACTIVA360',{x:0.5,y:0.5,w:4.5,h:0.6,fontSize:13,bold:true,color:DARK_H,charSpacing:8,margin:0});
+    s.addText('TXILAR',{x:0.5,y:1.3,w:4.5,h:1.4,fontSize:72,bold:true,color:RED_H,margin:0});
+    s.addShape(pres.ShapeType.rect,{x:0.5,y:2.85,w:0.6,h:0.06,fill:{color:DARK_H},line:{type:'none'}});
+    s.addText('RELATÓRIO
+SEMANAL',{x:0.5,y:3.0,w:4.5,h:1.0,fontSize:22,bold:true,color:DARK_H,lineSpacingMultiple:1.1,margin:0});
+    s.addText(d.semana,{x:0.5,y:4.1,w:4.5,h:0.4,fontSize:14,color:DARK_H,margin:0});
+    s.addText('IKIGAI360',{x:0.5,y:6.8,w:4.5,h:0.4,fontSize:11,color:DARK_H,charSpacing:4,margin:0});
+    s.addText(d.totalVendas.toString(),{x:6.0,y:1.8,w:5.0,h:2.5,fontSize:130,bold:true,color:RED_H,align:'center',margin:0});
+    s.addText('SIX PACKS
+VENDIDOS',{x:6.0,y:4.2,w:5.0,h:1.0,fontSize:18,bold:true,color:DARK_H,align:'center',charSpacing:3,lineSpacingMultiple:1.2,margin:0});
+    s.addText('esta semana',{x:6.0,y:5.2,w:5.0,h:0.4,fontSize:13,color:MUTED_H,align:'center',margin:0});
+    const bW=4.5,pp=pct(d.totalVendas,META_SEM)/100;
+    s.addShape(pres.ShapeType.rect,{x:6.4,y:6.0,w:bW,h:0.18,fill:{color:'E0E0E0'},line:{type:'none'}});
+    s.addShape(pres.ShapeType.rect,{x:6.4,y:6.0,w:Math.max(0.05,bW*pp),h:0.18,fill:{color:RED_H},line:{type:'none'}});
+    s.addText(`${pct(d.totalVendas,META_SEM)}% da meta semanal (${META_SEM} SP)`,{x:6.4,y:6.25,w:bW,h:0.3,fontSize:10,color:MUTED_H,margin:0});}
+
+    // ── SLIDE 2: KPIs ──
+    {const s=pres.addSlide();
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:CREAM_H},line:{type:'none'}});
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:1.1,fill:{color:DARK_H},line:{type:'none'}});
+    s.addText('RESUMO DA SEMANA',{x:0.5,y:0.2,w:8,h:0.65,fontSize:22,bold:true,color:YELLOW_H,charSpacing:4,margin:0});
+    s.addText(d.semana,{x:9.0,y:0.3,w:4,h:0.5,fontSize:13,color:WHITE_H,align:'right',margin:0});
+    const kpis=[
+      {label:'SIX PACKS
+VENDIDOS',value:d.totalVendas,sub:`meta semanal: ${META_SEM}`,bg:RED_H,fg:WHITE_H,sfg:'FFC600',bar:true},
+      {label:'ABORDAGENS
+FEITAS',value:d.totalAbord,sub:'consumidores contactados',bg:YELLOW_H,fg:DARK_H,sfg:DARK_H,bar:false},
+      {label:'TAXA DE
+CONVERSÃO',value:d.taxaConv,sub:'abordagens → vendas',bg:DARK_H,fg:WHITE_H,sfg:YELLOW_H,bar:false},
+      {label:'PDVs
+ACTIVOS',value:`${d.pdvsActivos}/${d.pdvsTotal}`,sub:'pontos de venda',bg:WHITE_H,fg:DARK_H,sfg:MUTED_H,bar:false},
+    ];
+    kpis.forEach((k,i)=>{const x=0.4+i*3.15;
+      s.addShape(pres.ShapeType.rect,{x,y:1.4,w:2.85,h:4.6,fill:{color:k.bg},line:k.bg===WHITE_H?{color:'E0E0E0',pt:1}:{type:'none'},shadow:{type:'outer',blur:8,offset:3,angle:135,color:'000000',opacity:0.1}});
+      s.addText(k.label,{x:x+0.18,y:1.65,w:2.5,h:0.75,fontSize:11,bold:true,color:k.fg,charSpacing:2,lineSpacingMultiple:1.2,margin:0});
+      s.addText(k.value.toString(),{x:x+0.1,y:2.5,w:2.65,h:1.8,fontSize:54,bold:true,color:k.fg,align:'center',margin:0});
+      s.addText(k.sub,{x:x+0.18,y:4.35,w:2.5,h:0.6,fontSize:10,color:k.sfg,lineSpacingMultiple:1.2,margin:0});
+      if(k.bar){const bW=2.5,pp2=pct(d.totalVendas,META_SEM)/100;
+        s.addShape(pres.ShapeType.rect,{x:x+0.18,y:5.15,w:bW,h:0.12,fill:{color:'FFFFFF',transparency:60},line:{type:'none'}});
+        s.addShape(pres.ShapeType.rect,{x:x+0.18,y:5.15,w:Math.max(0.05,bW*pp2),h:0.12,fill:{color:YELLOW_H},line:{type:'none'}});
+        s.addText(`${pct(d.totalVendas,META_SEM)}%`,{x:x+0.18,y:5.3,w:bW,h:0.3,fontSize:10,color:'FFC600',bold:true,margin:0});}
+    });
+    s.addText('TXILAR · IKIGAI360 · ACTIVA360',{x:0.5,y:7.1,w:12,h:0.3,fontSize:9,color:MUTED_H,align:'center',margin:0});}
+
+    // ── SLIDE 3: PDVs ──
+    {const s=pres.addSlide();
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:WHITE_H},line:{type:'none'}});
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:1.1,fill:{color:YELLOW_H},line:{type:'none'}});
+    s.addText('RESULTADOS POR PONTO DE VENDA',{x:0.5,y:0.2,w:10,h:0.65,fontSize:20,bold:true,color:DARK_H,charSpacing:3,margin:0});
+    s.addText(d.semana,{x:9.5,y:0.3,w:3.5,h:0.5,fontSize:12,color:DARK_H,align:'right',margin:0});
+    s.addChart(pres.ChartType.bar,[{name:'Six Packs Vendidos',labels:d.pdvsOrdenados.map(p=>p.nome),values:d.pdvsOrdenados.map(p=>p.vendas)}],{
+      x:0.4,y:1.3,w:7.8,h:5.8,barDir:'bar',chartColors:[RED_H],showValue:true,
+      dataLabelColor:WHITE_H,dataLabelFontSize:12,dataLabelFontBold:true,dataLabelPosition:'inEnd',
+      catAxisLabelColor:DARK_H,catAxisLabelFontSize:10,valAxisLabelColor:MUTED_H,valAxisLabelFontSize:9,
+      valGridLine:{color:'EEEEEE',size:1},catGridLine:{style:'none'},showLegend:false,showTitle:false,
+      valAxisMaxVal:Math.max(META_SEM,...d.pdvsOrdenados.map(p=>p.vendas))+10,
+    });
+    const tx=8.5;
+    s.addText('PDV',{x:tx,y:1.4,w:2.0,h:0.35,fontSize:9,bold:true,color:MUTED_H,charSpacing:2,margin:0});
+    s.addText('SP',{x:tx+2.0,y:1.4,w:0.8,h:0.35,fontSize:9,bold:true,color:MUTED_H,align:'center',charSpacing:2,margin:0});
+    s.addText('META',{x:tx+2.9,y:1.4,w:1.6,h:0.35,fontSize:9,bold:true,color:MUTED_H,align:'center',charSpacing:2,margin:0});
+    s.addShape(pres.ShapeType.rect,{x:tx,y:1.75,w:4.5,h:0.02,fill:{color:'EEEEEE'},line:{type:'none'}});
+    const rH=Math.min(0.75,5.5/d.pdvsOrdenados.length);
+    d.pdvsOrdenados.forEach((p,i)=>{const ry=1.85+i*rH,pp2=pct(p.vendas,p.metaSem),bc=pp2>=80?YELLOW_H:pp2>=40?'FFC600':RED_H;
+      if(i%2===0)s.addShape(pres.ShapeType.rect,{x:tx-0.1,y:ry-0.05,w:4.7,h:rH-0.02,fill:{color:'F8F8F8'},line:{type:'none'}});
+      s.addText(p.nome.length>20?p.nome.slice(0,19)+'…':p.nome,{x:tx,y:ry,w:1.95,h:rH*0.55,fontSize:Math.min(10,rH*14),color:DARK_H,bold:true,margin:0});
+      s.addText(p.regiao,{x:tx,y:ry+rH*0.55,w:1.95,h:rH*0.4,fontSize:8,color:MUTED_H,margin:0});
+      s.addText(p.vendas.toString(),{x:tx+2.0,y:ry+rH*0.1,w:0.8,h:rH*0.7,fontSize:Math.min(16,rH*20),bold:true,color:p.vendas>0?RED_H:MUTED_H,align:'center',margin:0});
+      const bw=1.5;s.addShape(pres.ShapeType.rect,{x:tx+2.9,y:ry+rH*0.35,w:bw,h:0.09,fill:{color:'E0E0E0'},line:{type:'none'}});
+      if(p.vendas>0)s.addShape(pres.ShapeType.rect,{x:tx+2.9,y:ry+rH*0.35,w:Math.max(0.05,bw*pp2/100),h:0.09,fill:{color:bc},line:{type:'none'}});
+      s.addText(`${pp2}%`,{x:tx+4.45,y:ry+rH*0.2,w:0.4,h:0.3,fontSize:8,color:MUTED_H,margin:0});
+    });
+    s.addText('TXILAR · IKIGAI360 · ACTIVA360',{x:4,y:7.15,w:9,h:0.3,fontSize:9,color:MUTED_H,align:'right',margin:0});}
+
+    // ── SLIDE 4: METAS ──
+    {const s=pres.addSlide();
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:DARK_H},line:{type:'none'}});
+    s.addText('PROGRESSÃO DE METAS',{x:0.6,y:0.4,w:12,h:0.7,fontSize:24,bold:true,color:YELLOW_H,charSpacing:4,margin:0});
+    s.addText(d.semana,{x:0.6,y:1.05,w:12,h:0.4,fontSize:13,color:WHITE_H,margin:0});
+    [{label:'META SEMANAL',meta:META_SEM,atual:d.totalVendas,unidade:'Six Packs / semana',x:0.6},
+     {label:'META MENSAL',meta:META_MES,atual:d.totalMes,unidade:'Six Packs / mês',x:7.0}].forEach(m=>{
+      const pp2=pct(m.atual,m.meta),bW=5.5;
+      s.addText(m.label,{x:m.x,y:1.7,w:5.5,h:0.4,fontSize:11,bold:true,color:YELLOW_H,charSpacing:3,margin:0});
+      s.addText(m.atual.toString(),{x:m.x,y:2.1,w:2.5,h:1.6,fontSize:80,bold:true,color:WHITE_H,margin:0});
+      s.addText(`/ ${m.meta}`,{x:m.x+2.3,y:2.9,w:2.5,h:0.9,fontSize:28,color:MUTED_H,margin:0});
+      s.addText(m.unidade,{x:m.x,y:3.7,w:5.5,h:0.35,fontSize:11,color:MUTED_H,margin:0});
+      s.addShape(pres.ShapeType.rect,{x:m.x,y:4.2,w:bW,h:0.25,fill:{color:'333333'},line:{type:'none'}});
+      s.addShape(pres.ShapeType.rect,{x:m.x,y:4.2,w:Math.max(0.05,bW*pp2/100),h:0.25,fill:{color:pp2>=80?'FFC600':RED_H},line:{type:'none'}});
+      s.addText(`${pp2}% atingido`,{x:m.x,y:4.55,w:5.5,h:0.4,fontSize:13,bold:true,color:pp2>=80?YELLOW_H:RED_H,margin:0});
+      s.addText(`${d.diasRest} dias restantes`,{x:m.x,y:5.05,w:5.5,h:0.35,fontSize:10,color:MUTED_H,italic:true,margin:0});
+    });
+    s.addShape(pres.ShapeType.rect,{x:6.65,y:1.6,w:0.03,h:5.0,fill:{color:'333333'},line:{type:'none'}});
+    s.addText('TXILAR · IKIGAI360 · ACTIVA360',{x:0.6,y:7.1,w:12,h:0.3,fontSize:9,color:MUTED_H,align:'center',margin:0});}
+
+    // ── SLIDE 5: BRINDES ──
+    {const s=pres.addSlide();
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:CREAM_H},line:{type:'none'}});
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:1.1,fill:{color:YELLOW_H},line:{type:'none'}});
+    s.addText('CONTROLO DE BRINDES',{x:0.5,y:0.2,w:10,h:0.65,fontSize:20,bold:true,color:DARK_H,charSpacing:3,margin:0});
+    s.addText(d.semana,{x:9.5,y:0.3,w:3.5,h:0.5,fontSize:12,color:DARK_H,align:'right',margin:0});
+    s.addShape(pres.ShapeType.rect,{x:0.5,y:1.4,w:3.8,h:3.5,fill:{color:RED_H},line:{type:'none'},shadow:{type:'outer',blur:10,offset:4,angle:135,color:'000000',opacity:0.12}});
+    s.addText('TOTAL
+DISTRIBUÍDOS',{x:0.7,y:1.65,w:3.4,h:0.8,fontSize:12,bold:true,color:YELLOW_H,charSpacing:3,lineSpacingMultiple:1.2,margin:0});
+    s.addText(d.totalBrindes.toString(),{x:0.7,y:2.5,w:3.4,h:1.5,fontSize:80,bold:true,color:WHITE_H,align:'center',margin:0});
+    s.addText('brindes esta semana',{x:0.7,y:4.1,w:3.4,h:0.5,fontSize:11,color:YELLOW_H,align:'center',margin:0});
+    BRINDES_TIPOS.forEach((b,i)=>{const x=4.7+(i%2)*4.1,y=1.4+Math.floor(i/2)*2.2,qtd=d.brindesPorTipo[b]||0;
+      s.addShape(pres.ShapeType.rect,{x,y,w:3.8,h:1.9,fill:{color:WHITE_H},line:{color:'EEEEEE',pt:1},shadow:{type:'outer',blur:6,offset:2,angle:135,color:'000000',opacity:0.08}});
+      s.addText('🎁',{x:x+0.2,y:y+0.25,w:0.6,h:0.6,fontSize:22,margin:0});
+      s.addText(b,{x:x+0.85,y:y+0.2,w:2.7,h:0.4,fontSize:13,bold:true,color:DARK_H,margin:0});
+      s.addText(qtd.toString(),{x:x+0.85,y:y+0.65,w:2.7,h:0.85,fontSize:40,bold:true,color:RED_H,margin:0});
+      s.addText('oferecidos',{x:x+0.85,y:y+1.45,w:2.7,h:0.35,fontSize:10,color:MUTED_H,margin:0});
+    });
+    s.addText('TXILAR · IKIGAI360 · ACTIVA360',{x:0.5,y:7.1,w:12,h:0.3,fontSize:9,color:MUTED_H,align:'center',margin:0});}
+
+    // ── SLIDE 6: DESTAQUES & PRÓXIMOS PASSOS ──
+    {const s=pres.addSlide();
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:WHITE_H},line:{type:'none'}});
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:6.5,h:7.5,fill:{color:DARK_H},line:{type:'none'}});
+    s.addText('DESTAQUES
+DA SEMANA',{x:0.5,y:0.4,w:5.5,h:1.1,fontSize:22,bold:true,color:YELLOW_H,charSpacing:2,lineSpacingMultiple:1.1,margin:0});
+    allDes.slice(0,5).forEach((txt,i)=>{const y=1.7+i*1.1;
+      s.addShape(pres.ShapeType.rect,{x:0.4,y:y,w:0.06,h:0.8,fill:{color:RED_H},line:{type:'none'}});
+      s.addText(txt,{x:0.65,y:y+0.05,w:5.5,h:0.85,fontSize:11,color:WHITE_H,lineSpacingMultiple:1.25,margin:0});
+    });
+    s.addText('PRÓXIMOS
+PASSOS',{x:6.9,y:0.4,w:6.0,h:1.1,fontSize:22,bold:true,color:DARK_H,charSpacing:2,lineSpacingMultiple:1.1,margin:0});
+    allPrx.slice(0,4).forEach((p,i)=>{const y=1.7+i*1.35;
+      s.addShape(pres.ShapeType.ellipse,{x:6.9,y:y+0.08,w:0.42,h:0.42,fill:{color:YELLOW_H},line:{type:'none'}});
+      s.addText((i+1).toString(),{x:6.9,y:y+0.08,w:0.42,h:0.42,fontSize:13,bold:true,color:DARK_H,align:'center',valign:'middle',margin:0});
+      s.addText(p,{x:7.45,y:y+0.06,w:5.6,h:0.8,fontSize:11.5,color:DARK_H,lineSpacingMultiple:1.25,margin:0});
+      if(i<allPrx.length-1)s.addShape(pres.ShapeType.rect,{x:7.45,y:y+1.05,w:5.6,h:0.01,fill:{color:'EEEEEE'},line:{type:'none'}});
+    });
+    s.addShape(pres.ShapeType.rect,{x:6.5,y:7.0,w:6.8,h:0.5,fill:{color:YELLOW_H},line:{type:'none'}});
+    s.addText('TXILAR · IKIGAI360 · ACTIVA360',{x:6.5,y:7.08,w:6.8,h:0.35,fontSize:10,bold:true,color:DARK_H,align:'center',margin:0});}
+
+    // ── SLIDE 7: FOTOS ──
+    {const s=pres.addSlide();
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:CREAM_H},line:{type:'none'}});
+    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:1.1,fill:{color:RED_H},line:{type:'none'}});
+    s.addText('REGISTO FOTOGRÁFICO',{x:0.5,y:0.2,w:10,h:0.65,fontSize:20,bold:true,color:WHITE_H,charSpacing:3,margin:0});
+    s.addText(d.semana,{x:9.5,y:0.3,w:3.5,h:0.5,fontSize:12,color:'FFC600',align:'right',margin:0});
+    const fw=3.8,fh=2.5,gX=0.3,gY=0.3,sX=0.5,sY=1.3;
+    for(let r=0;r<2;r++)for(let c=0;c<3;c++){
+      const idx=r*3+c,x=sX+c*(fw+gX),y=sY+r*(fh+gY);
+      s.addShape(pres.ShapeType.rect,{x,y,w:fw,h:fh,fill:{color:'E8E8E8'},line:{color:'CCCCCC',pt:1}});
+      s.addText('📷',{x,y:y+0.6,w:fw,h:0.8,fontSize:30,align:'center',margin:0});
+      s.addText('Inserir foto aqui',{x,y:y+1.4,w:fw,h:0.4,fontSize:11,color:MUTED_H,align:'center',italic:true,margin:0});
+      if(idx<d.pdvsOrdenados.length)s.addText(d.pdvsOrdenados[idx].nome,{x,y:y+fh-0.45,w:fw,h:0.38,fontSize:9,bold:true,color:DARK_H,align:'center',margin:0});
+    }
+    s.addText('Substituir cada placeholder pela foto da activação · TXILAR · IKIGAI360',{x:0.5,y:7.1,w:12,h:0.3,fontSize:9,color:MUTED_H,align:'center',margin:0});}
+
+    // Descarregar
+    const fileName=`Relatorio_TXILAR_${d.ini}_${d.fim}.pptx`;
+    await pres.writeFile({fileName});
+    $('ppt-btn-gerar').disabled=false;
+    $('ppt-btn-gerar').textContent='📥 Gerar e Descarregar PPT';
+    showPopup('success','PPT Gerado! ✅',`${fileName} descarregado. Insere as fotos no slide 7 e está pronto a enviar.`);
+  }catch(e){
+    $('ppt-btn-gerar').disabled=false;
+    $('ppt-btn-gerar').textContent='📥 Gerar e Descarregar PPT';
+    showPopup('error','Erro ao Gerar','Não foi possível gerar o PPT: '+e.message);
+    console.error(e);
+  }
+}
+
+// Init: set default dates to current week
+if(typeof $ === 'function') {
+  const _origInit=typeof init==='function'?init:null;
+}
 
 // ══ SETUP ══
 function populateEstabelecimentos(){
