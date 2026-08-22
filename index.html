@@ -984,7 +984,7 @@ async function pptGerar(){
     s1.addText('ACTIVA360',T('',{x:0.5,y:0.5,w:5.2,h:0.45,fontSize:11,bold:true,color:DARK_H,charSpacing:8}));
     s1.addText('TXILAR',T('',{x:0.5,y:1.1,w:5.2,h:2.0,fontSize:96,bold:true,color:RED_H}));
     s1.addShape(pres.ShapeType.rect,{x:0.5,y:3.25,w:0.85,h:0.07,fill:{color:DARK_H},line:{type:'none'}});
-    s1.addText('RELATÓRIO SEMANAL',T('',{x:0.5,y:3.45,w:5.2,h:0.65,fontSize:20,bold:true,color:DARK_H}));
+    s1.addText('RELAT\u00d3RIO SEMANAL',T('',{x:0.5,y:3.45,w:5.2,h:0.65,fontSize:20,bold:true,color:DARK_H}));
     s1.addText(d.semana,T('',{x:0.5,y:4.2,w:5.2,h:0.45,fontSize:14,color:DARK_H}));
     s1.addText('IKIGAI360',T('',{x:0.5,y:6.8,w:5.2,h:0.38,fontSize:11,bold:true,color:DARK_H,charSpacing:4}));
     s1.addText('CAMPANHA DE ACTIVACOES EM SUPERMERCADO',T('',{x:6.4,y:2.2,w:6.5,h:1.6,fontSize:24,bold:true,color:WHITE_H,lineSpacingMultiple:1.2}));
@@ -1038,7 +1038,7 @@ async function pptGerar(){
     d.pdvsOrdenados.forEach((p,i)=>{
       const ry=1.85+i*rH,pp3=pct(p.vendas,p.metaSem),bc=pp3>=100?YELLOW_H:pp3>=60?'FFC600':RED_H;
       if(i%2===0)s3.addShape(pres.ShapeType.rect,{x:tx-0.1,y:ry-0.04,w:4.7,h:rH-0.02,fill:{color:'F8F8F8'},line:{type:'none'}});
-      s3.addText(p.nome.length>20?p.nome.slice(0,19)+'…':p.nome,T('',{x:tx,y:ry+0.04,w:1.95,h:rH*0.55,fontSize:Math.min(10,rH*14),color:DARK_H,bold:true}));
+      s3.addText(p.nome.length>20?p.nome.slice(0,19)+'\u2026':p.nome,T('',{x:tx,y:ry+0.04,w:1.95,h:rH*0.55,fontSize:Math.min(10,rH*14),color:DARK_H,bold:true}));
       s3.addText(p.regiao,T('',{x:tx,y:ry+rH*0.55,w:1.95,h:rH*0.4,fontSize:8,color:MUTED_H}));
       s3.addText(p.vendas.toString(),T('',{x:tx+2.0,y:ry+0.04,w:0.8,h:rH*0.7,fontSize:Math.min(16,rH*20),bold:true,color:p.vendas>0?RED_H:MUTED_H,align:'center'}));
       const bw=1.5;
@@ -1079,7 +1079,7 @@ async function pptGerar(){
     d.pdvsOrdenados.forEach((p,i)=>{
       const ry4=3.0+i*rowH4,pp4=pct(p.vendas,p.metaSem),bc4=pp4>=100?YELLOW_H:pp4>=60?'FFC600':RED_H;
       if(i%2===0)s4.addShape(pres.ShapeType.rect,{x:0.4,y:ry4-0.04,w:12.4,h:rowH4-0.02,fill:{color:'222222'},line:{type:'none'}});
-      s4.addText(p.nome.length>22?p.nome.slice(0,21)+'…':p.nome,T('',{x:0.5,y:ry4+0.05,w:3.5,h:rowH4*0.65,fontSize:Math.min(10,rowH4*16),bold:true,color:WHITE_H}));
+      s4.addText(p.nome.length>22?p.nome.slice(0,21)+'\u2026':p.nome,T('',{x:0.5,y:ry4+0.05,w:3.5,h:rowH4*0.65,fontSize:Math.min(10,rowH4*16),bold:true,color:WHITE_H}));
       s4.addText(p.vendas.toString(),T('',{x:4.1,y:ry4+0.05,w:1.2,h:rowH4*0.65,fontSize:Math.min(13,rowH4*20),bold:true,color:p.vendas>0?YELLOW_H:MUTED_H,align:'center'}));
       s4.addText(p.metaSem.toString(),T('',{x:5.4,y:ry4+0.05,w:1.1,h:rowH4*0.65,fontSize:10,color:MUTED_H,align:'center'}));
       const bw4=4.4;
@@ -1149,7 +1149,56 @@ async function pptGerar(){
         const cx=0.65+col*(colW+colGap),cy=1.3+row*2.1,cardH=1.85;
         s7.addShape(pres.ShapeType.rect,{x:cx,y:cy,w:colW,h:cardH,fill:{color:WHITE_H},line:{color:'EEEEEE',pt:1},shadow:{type:'outer',blur:5,offset:2,angle:135,color:'000000',opacity:0.07}});
         s7.addShape(pres.ShapeType.rect,{x:cx,y:cy,w:0.06,h:cardH,fill:{color:YELLOW_H},line:{type:'none'}});
-        const txt=c.texto.length>160?c.texto.slice(0,157)+'…':c.texto;
+        const txt=c.texto.length>160?c.texto.slice(0,157)+'\u2026':c.texto;
         s7.addText('"'+txt+'"',T('',{x:cx+0.2,y:cy+0.15,w:colW-0.32,h:cardH-0.55,fontSize:10.5,color:DARK_H,italic:true,lineSpacingMultiple:1.3}));
         s7.addText(c.fonte+' - '+c.pdv+' - '+c.data,T('',{x:cx+0.2,y:cy+cardH-0.38,w:colW-0.32,h:0.3,fontSize:8.5,bold:true,color:MUTED_H}));
       });
+      if(coms.length>maxComs){
+        s7.addText('+ '+(coms.length-maxComs)+' observacoes adicionais no sistema',T('',{x:0.65,y:7.05,w:12,h:0.28,fontSize:9,color:MUTED_H,italic:true}));
+      }
+    }
+    s7.addText('TXILAR - IKIGAI360 - ACTIVA360',T('',{x:0.65,y:7.15,w:12,h:0.26,fontSize:9,color:MUTED_H,align:'right'}));
+
+    // SLIDE 8: FOTOS
+    const s8=pres.addSlide();
+    s8.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:CREAM_H},line:{type:'none'}});
+    s8.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:1.1,fill:{color:RED_H},line:{type:'none'}});
+    s8.addText('REGISTO FOTOGRAFICO',T('',{x:0.5,y:0.22,w:10,h:0.62,fontSize:20,bold:true,color:WHITE_H,charSpacing:3}));
+    s8.addText(d.semana,T('',{x:9.5,y:0.3,w:3.5,h:0.5,fontSize:12,color:'FFC600',align:'right'}));
+    for(let r=0;r<2;r++)for(let c=0;c<3;c++){
+      const idx=r*3+c,x8=0.5+c*4.1,y8=1.3+r*2.8;
+      s8.addShape(pres.ShapeType.rect,{x:x8,y:y8,w:3.8,h:2.5,fill:{color:'E8E8E8'},line:{color:'CCCCCC',pt:1}});
+      s8.addText('[ Inserir foto ]',T('',{x:x8,y:y8+0.9,w:3.8,h:0.55,fontSize:12,color:MUTED_H,align:'center',italic:true}));
+      if(idx<d.pdvsOrdenados.length)s8.addText(d.pdvsOrdenados[idx].nome,T('',{x:x8,y:y8+2.08,w:3.8,h:0.36,fontSize:9,bold:true,color:DARK_H,align:'center'}));
+    }
+    s8.addText('Substituir cada placeholder pela foto da activacao - TXILAR - IKIGAI360',T('',{x:0.5,y:7.1,w:12,h:0.3,fontSize:9,color:MUTED_H,align:'center'}));
+
+    // SLIDE 9: CONTRACAPA
+    const s9=pres.addSlide();
+    s9.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:YELLOW_H},line:{type:'none'}});
+    s9.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:2.8,fill:{color:DARK_H},line:{type:'none'}});
+    s9.addShape(pres.ShapeType.rect,{x:0,y:2.8,w:13.3,h:0.18,fill:{color:RED_H},line:{type:'none'}});
+    s9.addShape(pres.ShapeType.ellipse,{x:8.0,y:2.3,w:6.5,h:6.5,fill:{color:YELLOW_H,transparency:92},line:{type:'none'}});
+    s9.addText('TXILAR',T('',{x:0.6,y:0.32,w:9,h:1.25,fontSize:70,bold:true,color:YELLOW_H}));
+    s9.addText('ACTIVA360 - IKIGAI360',T('',{x:0.6,y:1.72,w:10,h:0.45,fontSize:13,bold:true,color:MUTED_H,charSpacing:4}));
+    s9.addText('Khanimambo\nObrigada\nThank you',T('',{x:0.6,y:3.1,w:8,h:2.6,fontSize:38,bold:true,color:DARK_H,lineSpacingMultiple:1.2}));
+    s9.addShape(pres.ShapeType.rect,{x:0.6,y:5.78,w:1.2,h:0.07,fill:{color:RED_H},line:{type:'none'}});
+    s9.addText('Proximo relatorio: semana seguinte',T('',{x:0.6,y:5.95,w:8,h:0.4,fontSize:13,color:DARK_H}));
+    s9.addText(d.semana,T('',{x:0.6,y:6.38,w:8,h:0.35,fontSize:11,color:MUTED_H}));
+    s9.addText('Documento confidencial - Acesso restrito ao cliente e equipa IKIGAI360',T('',{x:7.8,y:6.8,w:5.2,h:0.5,fontSize:8,color:DARK_H,italic:true,align:'right',lineSpacingMultiple:1.3}));
+
+    const fileName='Relatorio_TXILAR_'+d.ini+'_'+d.fim+'.pptx';
+    await pres.writeFile({fileName});
+    $('ppt-btn-gerar').disabled=false;$('ppt-btn-gerar').textContent='Gerar e Descarregar PPT';
+    showPopup('success','PPT Gerado!',fileName+' descarregado. Insere as fotos no slide 8 e esta pronto a enviar.');
+  }catch(e){
+    $('ppt-btn-gerar').disabled=false;$('ppt-btn-gerar').textContent='Gerar e Descarregar PPT';
+    showPopup('error','Erro ao Gerar','Nao foi possivel gerar o PPT: '+e.message);console.error(e);
+  }
+}
+// ══ SETUP ══
+function populateEstabelecimentos(){const opts=ESTABELECIMENTOS.map(e=>`<option value="${e.nome}">${e.nome} (${e.regiao})</option>`).join('');const el=$('sup-new-pdv');if(el)el.innerHTML=opts;}
+function buildSkuBlocks(){const c=$('sku-blocks');if(!c)return;c.innerHTML=SKUS.map(s=>`<div class="block-section"><div class="block-label">\ud83c\udf7a ${s}</div><div class="grid"><div class="field"><label>Stock Inicial</label><input type="number" min="0" id="f-stock-ini-${s}" value="0"></div><div class="field"><label>Stock Final</label><input type="number" min="0" id="f-stock-fim-${s}" value="0"></div><div class="field"><label>Pre\u00e7o (MZN)</label><input type="number" min="0" step=".01" id="f-preco-${s}" placeholder="0.00"></div><div class="field"><label>Validade</label><input type="date" id="f-validade-${s}"></div></div></div>`).join('');}
+</script>
+</body>
+</html>
