@@ -926,7 +926,9 @@ async function pptPreparar(){
     const brindesPorTipo={};BRINDES_TIPOS.forEach(b=>brindesPorTipo[b]=0);rSem.forEach(r=>{if(!r.brindes_turno)return;BRINDES_TIPOS.forEach(b=>{const v=r.brindes_turno[b];if(v&&typeof v==='object')brindesPorTipo[b]+=(v.oferecidos||0);else if(typeof v==='number')brindesPorTipo[b]+=v;});});
     const pdvsOrdenados=Object.entries(pdvSem).sort((a,b)=>b[1].vendas-a[1].vendas).map(([nome,d])=>({nome,...d,metaSem:metasMap[nome]||META_SEM,vendasMes:pdvMes[nome]||0}));
     // Meta total = soma das metas individuais por PDV activo no período
-    const metaTotalSem=pdvsOrdenados.reduce((s,p)=>s+(p.metaSem||META_SEM),0)||META_SEM;
+    // Meta total = soma das metas individuais dos PDVs activos no período (da tabela metas do Supabase)
+    const metaTotalSem=pdvsOrdenados.reduce((s,p)=>s+(metasMap[p.nome]||0),0)||1;
+    // Meta mensal = meta semanal × 4 semanas
     const metaTotalMes=metaTotalSem*4;
     const hoje=new Date(),fimD=new Date(fim),diasRest=Math.max(0,Math.ceil((fimD-hoje)/86400000));
     // Recolher comentários/observações das promotoras (relatórios + check-ins)
@@ -1089,8 +1091,8 @@ async function pptGerar(){
     s7.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:CREAM_H},line:{type:'none'}});
     s7.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:1.1,fill:{color:DARK_H},line:{type:'none'}});
     s7.addShape(pres.ShapeType.rect,{x:0,y:0,w:0.35,h:7.5,fill:{color:YELLOW_H},line:{type:'none'}});
-    s7.addText('VOTO DAS PROMOTORAS',{x:0.65,y:0.2,w:9,h:0.65,fontSize:20,bold:true,color:YELLOW_H,charSpacing:3,margin:0});
-    s7.addText('Key Learnings \u00b7 '+d.semana,{x:0.65,y:0.72,w:9,h:0.3,fontSize:10,color:MUTED_H,margin:0});
+    s7.addText('OBSERVA\u00c7\u00d5ES DE CAMPO',{x:0.65,y:0.2,w:9,h:0.65,fontSize:20,bold:true,color:YELLOW_H,charSpacing:3,margin:0});
+    s7.addText('Feedback das Equipas de Activa\u00e7\u00e3o \u00b7 '+d.semana,{x:0.65,y:0.72,w:9,h:0.3,fontSize:10,color:MUTED_H,margin:0});
     const coms=d.comentariosRaw||[];
     if(!coms.length){
       s7.addText('Sem observa\u00e7\u00f5es registadas pelas promotoras neste per\u00edodo.',{x:0.65,y:2.5,w:12,h:0.6,fontSize:14,color:MUTED_H,italic:true,align:'center',margin:0});
@@ -1132,7 +1134,7 @@ async function pptGerar(){
     s9.addText('TXILAR',{x:0.6,y:0.35,w:8,h:1.2,fontSize:68,bold:true,color:YELLOW_H,margin:0});
     s9.addText('ACTIVA360 \u00b7 IKIGAI360',{x:0.6,y:1.7,w:10,h:0.45,fontSize:13,bold:true,color:MUTED_H,charSpacing:4,margin:0});
     // Zona amarela
-    s9.addText('Obrigada\npela aten\u00e7\u00e3o.',{x:0.6,y:3.2,w:8,h:2.0,fontSize:42,bold:true,color:DARK_H,lineSpacingMultiple:1.1,margin:0});
+    s9.addText('Khanimambo\nObrigada\nThank you',{x:0.6,y:3.1,w:8,h:2.5,fontSize:38,bold:true,color:DARK_H,lineSpacingMultiple:1.15,margin:0});
     s9.addShape(pres.ShapeType.rect,{x:0.6,y:5.3,w:1.4,h:0.07,fill:{color:RED_H},line:{type:'none'}});
     s9.addText('Pr\u00f3ximo relat\u00f3rio: semana seguinte',{x:0.6,y:5.5,w:8,h:0.4,fontSize:13,color:DARK_H,margin:0});
     s9.addText(d.semana,{x:0.6,y:5.95,w:8,h:0.35,fontSize:11,color:MUTED_H,margin:0});
