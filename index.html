@@ -257,7 +257,7 @@ tr:hover td{background:var(--yellow-light)}
         <div class="grid">
           <div class="field"><label>Promotora</label><select id="ci-nome"><option value="">Seleccionar...</option></select></div>
           <div class="field"><label>PDV Atribuído</label><input type="text" id="ci-pdv-display" readonly></div>
-          <div class="field"><label>Data</label><input type="date" id="ci-data"></div>
+          <div class="field"><label>Data</label><input type="date" id="ci-data" readonly style="background:var(--line2);color:var(--ink2)"></div>
           <div class="field"><label>Turno</label><select id="ci-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option><option>Dia Inteiro</option></select></div>
           <div class="field"><label>Hora de Entrada</label><input type="time" id="ci-hora-entrada" readonly style="background:var(--line2);color:var(--ink2)"></div>
           <div class="field"><label>Hora Prevista de Saída</label><input type="time" id="ci-hora-saida-prev" readonly style="background:var(--line2);color:var(--ink2)"></div>
@@ -298,7 +298,7 @@ tr:hover td{background:var(--yellow-light)}
         <div class="grid">
           <div class="field"><label>Promotora</label><select id="f-nome"><option value="">Seleccionar...</option></select></div>
           <div class="field"><label>PDV</label><input type="text" id="f-pdv-display" readonly></div>
-          <div class="field"><label>Data</label><input type="date" id="f-data"></div>
+          <div class="field"><label>Data</label><input type="date" id="f-data" readonly style="background:var(--line2);color:var(--ink2)"></div>
           <div class="field"><label>Turno</label><select id="f-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option><option>Dia Inteiro</option></select></div>
           <div class="field"><label>Hora Início</label><input type="time" id="f-hora-inicio"></div>
           <div class="field"><label>Hora Fim</label><input type="time" id="f-hora-fim"></div>
@@ -683,7 +683,7 @@ async function doCheckin(){
   const today=todayISO();
   const turnoAberto=checkins.find(c=>c.promotaId===pId&&c.data===today&&!c.checkout?.horaSaida);
   if(turnoAberto){showPopup('error','Turno J\u00e1 Aberto','J\u00e1 tens um turno em curso hoje desde as '+turnoAberto.horaEntrada+'. Submete o relat\u00f3rio e faz o check-out primeiro.');return;}
-  const ci={id:'ci_'+Date.now(),promotaId:pId,nome:p.nome,pdv:p.pdv,pdvRegiao:ESTABELECIMENTOS.find(e=>e.nome===p.pdv)?.regiao||'',data:$('ci-data').value,turno:$('ci-turno').value,horaEntrada:$('ci-hora-entrada').value,horaSaidaPrev:$('ci-hora-saida-prev').value,uniforme:$('ci-uniforme').checked,material:$('ci-material').checked,geleira:$('ci-geleira').checked,stockOk:$('ci-stock-ok').checked,obsEntrada:$('ci-obs-entrada').value,checkout:null};
+  const ci={id:'ci_'+Date.now(),promotaId:pId,nome:p.nome,pdv:p.pdv,pdvRegiao:ESTABELECIMENTOS.find(e=>e.nome===p.pdv)?.regiao||'',data:todayISO(),turno:$('ci-turno').value,horaEntrada:$('ci-hora-entrada').value,horaSaidaPrev:$('ci-hora-saida-prev').value,uniforme:$('ci-uniforme').checked,material:$('ci-material').checked,geleira:$('ci-geleira').checked,stockOk:$('ci-stock-ok').checked,obsEntrada:$('ci-obs-entrada').value,checkout:null};
   let ok=false;try{ok=await saveCheckin(ci);}catch(e){console.error(e);}
   if(ok){showPopup('checkin','Check-in Registado! \ud83d\udccd','Bom turno, '+p.nome.split(' ')[0]+'!');$('checkout-card').dataset.ciId=ci.id;$('f-nome').value=pId;$('f-pdv-display').value=p.pdv;$('f-hora-inicio').value=ci.horaEntrada;$('f-turno').value=ci.turno;await loadAll();await initPromotoraLayer();}
   else showPopup('error','Erro no Check-in','N\u00e3o foi poss\u00edvel registar o check-in. Verifica a liga\u00e7\u00e3o.');
@@ -716,7 +716,7 @@ async function submitReport(){
   const bT={};BRINDES_TIPOS.forEach(b=>{const rec=parseInt(document.getElementById('f-br-rec-'+slugB(b))?.value)||0;const ofe=parseInt(document.getElementById('f-br-ofe-'+slugB(b))?.value)||0;bT[b]={recebidos:rec,oferecidos:ofe,diferenca:rec-ofe};});
   if(!$('f-hora-fim').value)$('f-hora-fim').value=nowHHMM();
   const hi=$('f-hora-inicio').value,hf=$('f-hora-fim').value;
-  const rep={id:'r_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),status:'pending',promotaId:pId,promotora:p.nome,pdv:p.pdv,regiao:ESTABELECIMENTOS.find(e=>e.nome===p.pdv)?.regiao||'',data:$('f-data').value,turno:$('f-turno').value,horaInicio:hi,horaFim:hf,horasCalc:calcHours(hi,hf),stockIni:sI,stockFim:sF,consumoTotal:consumo,precos:pr,validades:val,brindesTurno:bT,visitantes:parseInt($('f-visitantes').value)||0,interacoes:parseInt($('f-interacoes').value)||0,abordagens:parseInt($('f-interacoes').value)||0,vendasLata:parseInt($('f-vendas-lata').value)||0,vendas:parseInt($('f-vendas-lata').value)||0,concorrencia:$('f-concorrencia').value,fotoSetup:$('f-foto-setup').checked,fotoPdv:$('f-foto-pdv').checked,fotoGeleira:$('f-foto-geleira').checked,fotoDisplay:$('f-foto-display').checked,fotoInteracao:$('f-foto-interacao').checked,fotoPreco:$('f-foto-preco').checked,obs:$('f-obs').value,submetidoEm:new Date().toISOString()};
+  const rep={id:'r_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),status:'pending',promotaId:pId,promotora:p.nome,pdv:p.pdv,regiao:ESTABELECIMENTOS.find(e=>e.nome===p.pdv)?.regiao||'',data:todayISO(),turno:$('f-turno').value,horaInicio:hi,horaFim:hf,horasCalc:calcHours(hi,hf),stockIni:sI,stockFim:sF,consumoTotal:consumo,precos:pr,validades:val,brindesTurno:bT,visitantes:parseInt($('f-visitantes').value)||0,interacoes:parseInt($('f-interacoes').value)||0,abordagens:parseInt($('f-interacoes').value)||0,vendasLata:parseInt($('f-vendas-lata').value)||0,vendas:parseInt($('f-vendas-lata').value)||0,concorrencia:$('f-concorrencia').value,fotoSetup:$('f-foto-setup').checked,fotoPdv:$('f-foto-pdv').checked,fotoGeleira:$('f-foto-geleira').checked,fotoDisplay:$('f-foto-display').checked,fotoInteracao:$('f-foto-interacao').checked,fotoPreco:$('f-foto-preco').checked,obs:$('f-obs').value,submetidoEm:new Date().toISOString()};
   const ok=await saveRelatorio(rep);
   if(ok){
     showPopup('report','Relat\u00f3rio Submetido! \ud83d\udccb','O teu relat\u00f3rio foi enviado. Vai ao separador Check-in para fazer o check-out.');
