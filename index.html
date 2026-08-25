@@ -837,8 +837,9 @@ async function renderCliente(){
   $('c-no-data').style.display='none';$('c-content').style.display='block';
   // Calcular totais de meta a partir do metasCache (dados reais do Supabase)
   const pdvsComMeta=ESTABELECIMENTOS_BASE.filter(e=>pdvConfig[e.nome]?.visivel_cliente!==false);
-  const totalMetaMes=pdvsComMeta.reduce((s,e)=>s+(metasCache[e.nome]||META_MES),0);
-  const totalMetaSem=Math.round(totalMetaMes/4);
+  const totalMetaTotal=pdvsComMeta.reduce((s,e)=>s+(metasCache[e.nome]||META_TOTAL),0);
+  const totalMetaSem=Math.round(totalMetaTotal/4);
+  const totalMetaMes=totalMetaTotal;
   const elMetaSem=$('c-meta-sem-total');if(elMetaSem)elMetaSem.textContent=totalMetaSem;
   const elMetaMes=$('c-meta-mes-total');if(elMetaMes)elMetaMes.textContent=totalMetaMes;
   const elThSem=$('c-th-sem');if(elThSem)elThSem.textContent='Meta Semanal ('+totalMetaSem+' SP)';
@@ -865,8 +866,9 @@ function renderClienteTabela(){
   $('c-pdv-table').innerHTML=sorted.map(([nome,p],i)=>{
     const conv=p.interacoes?((p.vendas/p.interacoes)*100).toFixed(0):0,
       vendSem=weekMap[nome]||0,vendMes=monthMap[nome]||0,
-      metaMes=metasCache[nome]||META_MES,
-      metaSem=Math.round(metaMes/4),
+      metaTotal=metasCache[nome]||META_TOTAL,
+      metaSem=Math.round(metaTotal/4),
+      metaMes=metaTotal,
       pctSem=Math.min(100,Math.round((vendSem/metaSem)*100)),
       pctMes=Math.min(100,Math.round((vendMes/metaMes)*100)),
       colSem=pctSem>=100?'var(--ok)':pctSem>=60?'var(--warn)':'var(--red)',
@@ -918,7 +920,7 @@ async function apagarSeleccionados(){const selected=[...document.querySelectorAl
 
 // ══ PPT GENERATOR ══
 const RED_H='E4002B',YELLOW_H='FFC600',DARK_H='1A1A1A',WHITE_H='FFFFFF',MUTED_H='767676',CREAM_H='FFFEF8';
-const META_SEM=200,META_MES=800;
+const META_TOTAL=400,META_SEM=100,META_MES=400;
 let _pptDados=null;
 
 function pptSetSemana(){const hoje=new Date(),dow=hoje.getDay()||7,seg=new Date(hoje);seg.setDate(hoje.getDate()-dow+1);const dom=new Date(seg);dom.setDate(seg.getDate()+6);$('ppt-data-ini').value=seg.toISOString().slice(0,10);$('ppt-data-fim').value=dom.toISOString().slice(0,10);}
@@ -937,16 +939,16 @@ async function pptPreparar(){
       fetch(`${SB_URL}/rest/v1/checkins?data=gte.${ini}&data=lte.${fim}&order=data.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
     ]);
     if(!rSem.length){$('ppt-loading').style.display='none';showPopup('error','Sem Dados','N\u00e3o h\u00e1 relat\u00f3rios aprovados neste per\u00edodo.');return;}
-    const metasMap={};if(Array.isArray(metas))metas.forEach(m=>metasMap[m.pdv]=m.meta||META_SEM);
+    const metasMap={};if(Array.isArray(metas))metas.forEach(m=>metasMap[m.pdv]=m.meta||META_TOTAL);
     const pdvSem={};rSem.forEach(r=>{if(!pdvSem[r.pdv])pdvSem[r.pdv]={regiao:r.regiao||'Sul',vendas:0,interacoes:0,brindes:0};pdvSem[r.pdv].vendas+=(r.vendas_lata||r.vendas||0);pdvSem[r.pdv].interacoes+=(r.interacoes||0);pdvSem[r.pdv].brindes+=pptBrTot(r.brindes_turno);});
     const pdvMes={};rMes.forEach(r=>{if(!pdvMes[r.pdv])pdvMes[r.pdv]=0;pdvMes[r.pdv]+=(r.vendas_lata||r.vendas||0);});
     const totalVendas=Object.values(pdvSem).reduce((s,p)=>s+p.vendas,0),totalAbord=Object.values(pdvSem).reduce((s,p)=>s+p.interacoes,0),totalBrindes=Object.values(pdvSem).reduce((s,p)=>s+p.brindes,0),taxaConv=totalAbord>0?((totalVendas/totalAbord)*100).toFixed(1)+'%':'\u2014',totalMes=Object.values(pdvMes).reduce((s,v)=>s+v,0),pdvsActivos=Object.values(pdvSem).filter(p=>p.vendas>0).length;
     const brindesPorTipo={};BRINDES_TIPOS.forEach(b=>brindesPorTipo[b]=0);rSem.forEach(r=>{if(!r.brindes_turno)return;BRINDES_TIPOS.forEach(b=>{const v=r.brindes_turno[b];if(v&&typeof v==='object')brindesPorTipo[b]+=(v.oferecidos||0);else if(typeof v==='number')brindesPorTipo[b]+=v;});});
-    const pdvsOrdenados=Object.entries(pdvSem).sort((a,b)=>b[1].vendas-a[1].vendas).map(([nome,d])=>({nome,...d,metaMes:metasMap[nome]||META_MES,metaSem:Math.round((metasMap[nome]||META_MES)/4),vendasMes:pdvMes[nome]||0}));
+    const pdvsOrdenados=Object.entries(pdvSem).sort((a,b)=>b[1].vendas-a[1].vendas).map(([nome,d])=>({nome,...d,metaTotal:metasMap[nome]||META_TOTAL,metaSem:Math.round((metasMap[nome]||META_TOTAL)/4),metaMes:metasMap[nome]||META_TOTAL,vendasMes:pdvMes[nome]||0}));
     // Meta total = soma das metas individuais por PDV activo no período
     // Meta total = soma das metas individuais dos PDVs activos no período (da tabela metas do Supabase)
     const metaTotalSem=pdvsOrdenados.reduce((s,p)=>s+p.metaSem,0)||1;
-    const metaTotalMes=pdvsOrdenados.reduce((s,p)=>s+p.metaMes,0)||1;
+    const metaTotalMes=pdvsOrdenados.reduce((s,p)=>s+p.metaTotal,0)||1;
     const hoje=new Date(),fimD=new Date(fim),diasRest=Math.max(0,Math.ceil((fimD-hoje)/86400000));
     // Recolher comentários/observações das promotoras (relatórios + check-ins)
     const comentariosRaw=[];
