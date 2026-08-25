@@ -461,9 +461,9 @@ tr:hover td{background:var(--yellow-light)}
             <button class="btn-sm" onclick="pptAddDestaque()" style="margin-top:8px">+ Adicionar destaque</button>
           </div>
           <div style="margin-bottom:20px">
-            <label style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:8px">Próximos Passos</label>
+            <label style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:8px">Recomendações</label>
             <div id="ppt-proximos-list"></div>
-            <button class="btn-sm" onclick="pptAddProximo()" style="margin-top:8px">+ Adicionar passo</button>
+            <button class="btn-sm" onclick="pptAddProximo()" style="margin-top:8px">+ Adicionar recomendação</button>
           </div>
           <button class="btn-primary" onclick="pptGerar()" id="ppt-btn-gerar" style="width:100%;padding:14px;font-size:15px">📥 Gerar e Descarregar PPT</button>
           <p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">O PPT inclui 7 slides: Capa, KPIs, Resultados por PDV, Metas, Brindes, Destaques e Registo Fotográfico</p>
@@ -981,7 +981,7 @@ async function pptPreparar(){
   }catch(e){$('ppt-loading').style.display='none';showPopup('error','Erro','N\u00e3o foi poss\u00edvel carregar os dados: '+e.message);}
 }
 function pptAddDestaque(){const l=document.getElementById('ppt-destaques-list'),d=document.createElement('div');d.style.cssText='display:flex;gap:8px;align-items:flex-start;margin-bottom:8px';const n=l.children.length+1;d.innerHTML=`<div style="background:var(--yellow);color:var(--ink);font-weight:900;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:6px">${n}</div><input type="text" placeholder="Novo destaque..." style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px"><button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px">\u00d7</button>`;l.appendChild(d);}
-function pptAddProximo(){const l=document.getElementById('ppt-proximos-list'),d=document.createElement('div');d.style.cssText='display:flex;gap:8px;align-items:flex-start;margin-bottom:8px';const n=l.children.length+1;d.innerHTML=`<div style="background:var(--yellow);color:var(--ink);font-weight:900;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:6px">${n}</div><input type="text" placeholder="Novo passo..." style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px"><button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px">\u00d7</button>`;l.appendChild(d);}
+function pptAddProximo(){const l=document.getElementById('ppt-proximos-list'),d=document.createElement('div');d.style.cssText='display:flex;gap:8px;align-items:flex-start;margin-bottom:8px';const n=l.children.length+1;d.innerHTML=`<div style="background:var(--yellow);color:var(--ink);font-weight:900;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:6px">${n}</div><input type="text" placeholder="Nova recomendação..." style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px"><button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px">\u00d7</button>`;l.appendChild(d);}
 
 async function pptGerar(){
   if(!_pptDados){showPopup('error','Sem dados','Carrega os dados primeiro.');return;}
@@ -1000,16 +1000,15 @@ async function pptGerar(){
     s1.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:DARK_H},line:{type:'none'}});
     s1.addShape(pres.ShapeType.rect,{x:0,y:0,w:6.0,h:7.5,fill:{color:YELLOW_H},line:{type:'none'}});
     s1.addShape(pres.ShapeType.rect,{x:5.75,y:0,w:0.25,h:7.5,fill:{color:RED_H},line:{type:'none'}});
-    s1.addShape(pres.ShapeType.ellipse,{x:2.5,y:3.8,w:4.5,h:4.5,fill:{color:DARK_H,transparency:88},line:{type:'none'}});
     s1.addText('ACTIVA360',T('',{x:0.5,y:0.5,w:5.2,h:0.45,fontSize:11,bold:true,color:DARK_H,charSpacing:8}));
     s1.addText('TXILAR',T('',{x:0.5,y:1.1,w:5.2,h:2.0,fontSize:96,bold:true,color:RED_H}));
     s1.addShape(pres.ShapeType.rect,{x:0.5,y:3.25,w:0.85,h:0.07,fill:{color:DARK_H},line:{type:'none'}});
     s1.addText('RELAT\u00d3RIO SEMANAL',T('',{x:0.5,y:3.45,w:5.2,h:0.65,fontSize:20,bold:true,color:DARK_H}));
     s1.addText(d.semana,T('',{x:0.5,y:4.2,w:5.2,h:0.45,fontSize:14,color:DARK_H}));
     s1.addText('IKIGAI360',T('',{x:0.5,y:6.8,w:5.2,h:0.38,fontSize:11,bold:true,color:DARK_H,charSpacing:4}));
-    s1.addText('CAMPANHA DE ACTIVACOES EM SUPERMERCADO',T('',{x:6.4,y:2.2,w:6.5,h:1.6,fontSize:24,bold:true,color:WHITE_H,lineSpacingMultiple:1.2}));
+    s1.addText('CAMPANHA DE ACTIVA\u00c7\u00d5ES EM SUPERMERCADO',T('',{x:6.4,y:2.2,w:6.5,h:1.6,fontSize:24,bold:true,color:WHITE_H,lineSpacingMultiple:1.2}));
     s1.addShape(pres.ShapeType.rect,{x:6.4,y:4.0,w:1.1,h:0.07,fill:{color:YELLOW_H},line:{type:'none'}});
-    s1.addText('MOCAMBIQUE',T('',{x:6.4,y:4.2,w:6.5,h:0.42,fontSize:14,bold:true,color:YELLOW_H,charSpacing:4}));
+    s1.addText('MO\u00c7AMBIQUE',T('',{x:6.4,y:4.2,w:6.5,h:0.42,fontSize:14,bold:true,color:YELLOW_H,charSpacing:4}));
     s1.addText(d.semana,T('',{x:6.4,y:4.75,w:6.5,h:0.38,fontSize:12,color:MUTED_H}));
     s1.addText('Confidencial - Distribuicao restrita',T('',{x:6.4,y:6.8,w:6.5,h:0.35,fontSize:9,color:MUTED_H,italic:true}));
 
@@ -1151,32 +1150,36 @@ async function pptGerar(){
     s6.addShape(pres.ShapeType.rect,{x:6.5,y:7.0,w:6.8,h:0.5,fill:{color:YELLOW_H},line:{type:'none'}});
     s6.addText('TXILAR - IKIGAI360 - ACTIVA360',T('',{x:6.5,y:7.1,w:6.8,h:0.34,fontSize:10,bold:true,color:DARK_H,align:'center'}));
 
-    // SLIDE 7: OBSERVACOES DE CAMPO
+    // SLIDE 7: OBSERVAÇÕES DE CAMPO — layout exacto do PPT aprovado
     const s7=pres.addSlide();
     s7.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:7.5,fill:{color:CREAM_H},line:{type:'none'}});
     s7.addShape(pres.ShapeType.rect,{x:0,y:0,w:13.3,h:1.1,fill:{color:DARK_H},line:{type:'none'}});
     s7.addShape(pres.ShapeType.rect,{x:0,y:0,w:0.35,h:7.5,fill:{color:YELLOW_H},line:{type:'none'}});
-    s7.addText('OBSERVACOES DE CAMPO',T('',{x:0.65,y:0.22,w:9,h:0.62,fontSize:20,bold:true,color:YELLOW_H,charSpacing:3}));
-    s7.addText('Feedback das Equipas de Activacao - '+d.semana,T('',{x:0.65,y:0.72,w:10,h:0.3,fontSize:10,color:MUTED_H}));
-    const coms=d.comentariosRaw||[];
-    if(!coms.length){
-      s7.addText('Sem observacoes registadas pelas promotoras neste periodo.',T('',{x:0.65,y:2.8,w:12,h:0.6,fontSize:14,color:MUTED_H,italic:true,align:'center'}));
-    } else {
-      const maxComs=Math.min(coms.length,6);
-      const colCount=maxComs<=3?1:2;
-      const colW=colCount===1?12.0:5.9,colGap=0.35;
-      coms.slice(0,maxComs).forEach((c,i)=>{
-        const col=colCount===1?0:i%2,row=colCount===1?i:Math.floor(i/2);
-        const cx=0.65+col*(colW+colGap),cy=1.3+row*2.1,cardH=1.85;
-        s7.addShape(pres.ShapeType.rect,{x:cx,y:cy,w:colW,h:cardH,fill:{color:WHITE_H},line:{color:'EEEEEE',pt:1},shadow:{type:'outer',blur:5,offset:2,angle:135,color:'000000',opacity:0.07}});
-        s7.addShape(pres.ShapeType.rect,{x:cx,y:cy,w:0.06,h:cardH,fill:{color:YELLOW_H},line:{type:'none'}});
-        const txt=c.texto.length>160?c.texto.slice(0,157)+'\u2026':c.texto;
-        s7.addText('"'+txt+'"',T('',{x:cx+0.2,y:cy+0.15,w:colW-0.32,h:cardH-0.55,fontSize:10.5,color:DARK_H,italic:true,lineSpacingMultiple:1.3}));
-        s7.addText(c.fonte+' - '+c.pdv+' - '+c.data,T('',{x:cx+0.2,y:cy+cardH-0.38,w:colW-0.32,h:0.3,fontSize:8.5,bold:true,color:MUTED_H}));
+    s7.addText('OBSERVA\u00c7\u00d5ES DE CAMPO',T('',{x:0.65,y:0.22,w:9,h:0.62,fontSize:20,bold:true,color:YELLOW_H,charSpacing:3}));
+    s7.addText('Feedback das Equipas de Activa\u00e7\u00e3o \u2013 '+d.semana,T('',{x:0.65,y:0.72,w:10,h:0.3,fontSize:10,color:MUTED_H}));
+    // Grelha 2 colunas x 5 linhas — card h=0.65, gap vertical=0.22
+    const coms7=d.comentariosRaw||[];
+    const cols7=[{x:0.65},{x:6.90}];
+    const rows7=[1.30,2.15,3.02,3.89,4.76];
+    let ci7=0;
+    rows7.forEach(ry=>{
+      cols7.forEach(col=>{
+        const com=coms7[ci7];
+        const isDestaque=com&&com.destaque;
+        const bgCol=isDestaque?'E4002B':WHITE_H;
+        const txtCol=isDestaque?WHITE_H:DARK_H;
+        const cardH=0.65;
+        s7.addShape(pres.ShapeType.rect,{x:col.x,y:ry,w:5.9,h:cardH,fill:{color:bgCol},line:{color:'EEEEEE',pt:1},shadow:{type:'outer',blur:4,offset:2,angle:135,color:'000000',opacity:0.07}});
+        s7.addShape(pres.ShapeType.rect,{x:col.x,y:ry,w:0.06,h:cardH,fill:{color:YELLOW_H},line:{type:'none'}});
+        if(com){
+          const txt=com.texto.length>90?com.texto.slice(0,87)+'\u2026':com.texto;
+          s7.addText(txt,T('',{x:col.x+0.14,y:ry+0.06,w:5.66,h:cardH-0.12,fontSize:9.5,color:txtCol,lineSpacingMultiple:1.2,italic:false}));
+        }
+        ci7++;
       });
-      if(coms.length>maxComs){
-        s7.addText('+ '+(coms.length-maxComs)+' observacoes adicionais no sistema',T('',{x:0.65,y:7.05,w:12,h:0.28,fontSize:9,color:MUTED_H,italic:true}));
-      }
+    });
+    if(coms7.length>10){
+      s7.addText('+ '+(coms7.length-10)+' observa\u00e7\u00f5es adicionais no sistema',T('',{x:0.65,y:5.55,w:12,h:0.3,fontSize:9,color:MUTED_H,italic:true}));
     }
     s7.addText('TXILAR - IKIGAI360 - ACTIVA360',T('',{x:0.65,y:7.15,w:12,h:0.26,fontSize:9,color:MUTED_H,align:'right'}));
 
