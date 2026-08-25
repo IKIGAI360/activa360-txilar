@@ -510,12 +510,12 @@ tr:hover td{background:var(--yellow-light)}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
           <div style="background:var(--yellow-light);border:1.5px solid var(--yellow-dark);border-radius:10px;padding:16px;text-align:center">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Meta Semanal</div>
-            <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1">200</div>
+            <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1" id="c-meta-sem-total">200</div>
             <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-top:4px">Six Pack / semana</div>
           </div>
           <div style="background:var(--red-light);border:1.5px solid rgba(228,0,43,0.2);border-radius:10px;padding:16px;text-align:center">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Meta Mensal</div>
-            <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1">800</div>
+            <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:var(--red);line-height:1" id="c-meta-mes-total">800</div>
             <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-top:4px">Six Pack / mês</div>
           </div>
         </div>
@@ -533,7 +533,7 @@ tr:hover td{background:var(--yellow-light)}
         <div class="card">
           <div class="card-title"><div class="icon accent">🏪</div> Pontos de Venda</div>
           <div class="table-wrap"><table>
-            <thead><tr><th>#</th><th>Ponto de Venda</th><th>Região</th><th>Vendas</th><th>Meta Semanal (200 SP)</th><th>Meta Mensal (800 SP)</th><th>Abordagens</th><th>Conv. %</th></tr></thead>
+            <thead><tr><th>#</th><th>Ponto de Venda</th><th>Região</th><th>Vendas</th><th id="c-th-sem">Meta Semanal</th><th id="c-th-mes">Meta Mensal</th><th>Abordagens</th><th>Conv. %</th></tr></thead>
             <tbody id="c-pdv-table"></tbody>
           </table></div>
         </div>
@@ -835,6 +835,14 @@ async function renderCliente(){
   const approved=reports.filter(r=>r.status==='approved');
   if(!approved.length){$('c-no-data').style.display='block';$('c-content').style.display='none';$('c-periodo').textContent='Sem dados validados';$('c-hero-kpis').innerHTML='<div style="opacity:0.65;font-size:12px">Os dados aparecem ap\u00f3s valida\u00e7\u00e3o pelo supervisor.</div>';return;}
   $('c-no-data').style.display='none';$('c-content').style.display='block';
+  // Calcular totais de meta a partir do metasCache (dados reais do Supabase)
+  const pdvsComMeta=ESTABELECIMENTOS_BASE.filter(e=>pdvConfig[e.nome]?.visivel_cliente!==false);
+  const totalMetaMes=pdvsComMeta.reduce((s,e)=>s+(metasCache[e.nome]||META_MES),0);
+  const totalMetaSem=Math.round(totalMetaMes/4);
+  const elMetaSem=$('c-meta-sem-total');if(elMetaSem)elMetaSem.textContent=totalMetaSem;
+  const elMetaMes=$('c-meta-mes-total');if(elMetaMes)elMetaMes.textContent=totalMetaMes;
+  const elThSem=$('c-th-sem');if(elThSem)elThSem.textContent='Meta Semanal ('+totalMetaSem+' SP)';
+  const elThMes=$('c-th-mes');if(elThMes)elThMes.textContent='Meta Mensal ('+totalMetaMes+' SP)';
   const pdvs=[...new Set(approved.map(r=>r.pdv))].sort(),regs=[...new Set(approved.map(r=>r.regiao).filter(Boolean))].sort();
   const cFilPdv=$('c-fil-pdv'),cFilReg=$('c-fil-reg');
   if(cFilPdv)cFilPdv.innerHTML='<option value="">Todos</option>'+pdvs.map(p=>`<option>${p}</option>`).join('');
@@ -847,14 +855,24 @@ async function renderCliente(){
 }
 function getFilteredApproved(){const regEl=$('c-fil-reg'),pdvEl=$('c-fil-pdv'),perEl=$('c-fil-periodo');const reg=regEl?regEl.value:'',pdv=pdvEl?pdvEl.value:'',periodo=perEl?perEl.value:'tudo',today=new Date();return reports.filter(r=>{if(r.status!=='approved')return false;if(reg&&r.regiao!==reg)return false;if(pdv&&r.pdv!==pdv)return false;if(periodo==='semana'){const rDate=new Date(r.data),dayOfWeek=today.getDay()||7,monday=new Date(today);monday.setDate(today.getDate()-dayOfWeek+1);monday.setHours(0,0,0,0);if(rDate<monday)return false;}if(periodo==='mes'){const rDate=new Date(r.data);if(rDate.getMonth()!==today.getMonth()||rDate.getFullYear()!==today.getFullYear())return false;}return true;});}
 function renderClienteTabela(){
-  const filtered=getFilteredApproved(),META_SEMANAL=200,META_MENSAL=800,fReg=$('c-fil-reg')?.value||'',fPdv=$('c-fil-pdv')?.value||'';
+  const filtered=getFilteredApproved(),fReg=$('c-fil-reg')?.value||'',fPdv=$('c-fil-pdv')?.value||'';
   const pdvMap={};ESTABELECIMENTOS_BASE.filter(e=>{if(pdvConfig[e.nome]?.visivel_cliente===false)return false;if(fReg&&e.regiao!==fReg)return false;if(fPdv&&e.nome!==fPdv)return false;return true;}).forEach(e=>{pdvMap[e.nome]={regiao:e.regiao,vendas:0,interacoes:0,amostragens:0};});
   filtered.forEach(r=>{if(!pdvMap[r.pdv])return;pdvMap[r.pdv].vendas+=(r.vendasLata||r.vendas||0);pdvMap[r.pdv].interacoes+=r.interacoes;pdvMap[r.pdv].amostragens+=r.amostragens;});
   const allApproved=reports.filter(r=>r.status==='approved'),today=new Date(),dayOfWeek=today.getDay()||7,monday=new Date(today);monday.setDate(today.getDate()-dayOfWeek+1);monday.setHours(0,0,0,0);
   const weekMap={},monthMap={};allApproved.forEach(r=>{const rDate=new Date(r.data);if(!weekMap[r.pdv])weekMap[r.pdv]=0;if(!monthMap[r.pdv])monthMap[r.pdv]=0;if(rDate>=monday)weekMap[r.pdv]+=(r.vendasLata||r.vendas||0);if(rDate.getMonth()===today.getMonth()&&rDate.getFullYear()===today.getFullYear())monthMap[r.pdv]+=(r.vendasLata||r.vendas||0);});
   const sorted=Object.entries(pdvMap).sort((a,b)=>b[1].vendas-a[1].vendas);
   if(!sorted.length){$('c-pdv-table').innerHTML='<tr><td colspan="8" class="empty">Sem dados para os filtros seleccionados.</td></tr>';return;}
-  $('c-pdv-table').innerHTML=sorted.map(([nome,p],i)=>{const conv=p.interacoes?((p.vendas/p.interacoes)*100).toFixed(0):0,vendSem=weekMap[nome]||0,vendMes=monthMap[nome]||0,pctSem=Math.min(100,Math.round((vendSem/META_SEMANAL)*100)),pctMes=Math.min(100,Math.round((vendMes/META_MENSAL)*100)),colSem=pctSem>=100?'var(--ok)':pctSem>=60?'var(--warn)':'var(--red)',colMes=pctMes>=100?'var(--ok)':pctMes>=60?'var(--warn)':'var(--red)';return`<tr><td style="font-weight:700;color:var(--muted);font-size:11px">${i+1}</td><td><strong>${nome}</strong></td><td><span class="badge neutral">${p.regiao}</span></td><td><strong style="color:var(--red)">${p.vendas}</strong></td><td style="min-width:150px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:3px">Semanal \u00b7 meta ${META_SEMANAL} SP</div><div style="display:flex;align-items:center;gap:6px"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pctSem}%;background:${colSem}"></div></div><span style="font-size:10px;font-weight:700;color:${colSem};min-width:32px">${vendSem} SP</span></div><div style="font-size:9px;color:var(--muted);margin-top:1px">${pctSem}% da meta</div></td><td style="min-width:150px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:3px">Mensal \u00b7 meta ${META_MENSAL} SP</div><div style="display:flex;align-items:center;gap:6px"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pctMes}%;background:${colMes}"></div></div><span style="font-size:10px;font-weight:700;color:${colMes};min-width:32px">${vendMes} SP</span></div><div style="font-size:9px;color:var(--muted);margin-top:1px">${pctMes}% da meta</div></td><td>${p.interacoes}</td><td><span class="badge ${conv>=30?'ok':conv>=15?'warn':'danger'}">${conv}%</span></td></tr>`;}).join('');
+  $('c-pdv-table').innerHTML=sorted.map(([nome,p],i)=>{
+    const conv=p.interacoes?((p.vendas/p.interacoes)*100).toFixed(0):0,
+      vendSem=weekMap[nome]||0,vendMes=monthMap[nome]||0,
+      metaMes=metasCache[nome]||META_MES,
+      metaSem=Math.round(metaMes/4),
+      pctSem=Math.min(100,Math.round((vendSem/metaSem)*100)),
+      pctMes=Math.min(100,Math.round((vendMes/metaMes)*100)),
+      colSem=pctSem>=100?'var(--ok)':pctSem>=60?'var(--warn)':'var(--red)',
+      colMes=pctMes>=100?'var(--ok)':pctMes>=60?'var(--warn)':'var(--red)';
+    return`<tr><td style="font-weight:700;color:var(--muted);font-size:11px">${i+1}</td><td><strong>${nome}</strong></td><td><span class="badge neutral">${p.regiao}</span></td><td><strong style="color:var(--red)">${p.vendas}</strong></td><td style="min-width:150px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:3px">Semanal \u00b7 meta ${metaSem} SP</div><div style="display:flex;align-items:center;gap:6px"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pctSem}%;background:${colSem}"></div></div><span style="font-size:10px;font-weight:700;color:${colSem};min-width:32px">${vendSem} SP</span></div><div style="font-size:9px;color:var(--muted);margin-top:1px">${pctSem}% da meta</div></td><td style="min-width:150px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:3px">Mensal \u00b7 meta ${metaMes} SP</div><div style="display:flex;align-items:center;gap:6px"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${pctMes}%;background:${colMes}"></div></div><span style="font-size:10px;font-weight:700;color:${colMes};min-width:32px">${vendMes} SP</span></div><div style="font-size:9px;color:var(--muted);margin-top:1px">${pctMes}% da meta</div></td><td>${p.interacoes}</td><td><span class="badge ${conv>=30?'ok':conv>=15?'warn':'danger'}">${conv}%</span></td></tr>`;
+  }).join('');
   renderClienteCharts(filtered);
 }
 function renderClienteCharts(data){
