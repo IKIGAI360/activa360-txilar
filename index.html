@@ -1021,19 +1021,19 @@ async function pptPreparar(){
   if(!ini||!fim){showPopup('error','Datas em falta','Selecciona o per\u00edodo.');return;}
   $('ppt-preview').style.display='none';$('ppt-loading').style.display='block';$('ppt-loading-msg').textContent='A carregar dados do Supabase...';
   try{
-    const[rSem,rMes,metas,ciSem]=await Promise.all([
+    const[rSem,rTotal,metas,ciSem]=await Promise.all([
       fetch(`${SB_URL}/rest/v1/relatorios?status=eq.approved&data=gte.${ini}&data=lte.${fim}&order=data.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
-      fetch(`${SB_URL}/rest/v1/relatorios?status=eq.approved&data=gte.${ini.slice(0,7)+'-01'}&data=lte.${(()=>{const[y,m]=fim.split('-');return new Date(parseInt(y),parseInt(m),0).toISOString().slice(0,10);})()}&order=data.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/relatorios?status=eq.approved&order=data.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
       fetch(`${SB_URL}/rest/v1/metas`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
       fetch(`${SB_URL}/rest/v1/checkins?data=gte.${ini}&data=lte.${fim}&order=data.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
     ]);
     if(!rSem.length){$('ppt-loading').style.display='none';showPopup('error','Sem Dados','N\u00e3o h\u00e1 relat\u00f3rios aprovados neste per\u00edodo.');return;}
     const metasMap={};if(Array.isArray(metas))metas.forEach(m=>metasMap[m.pdv]=m.meta||META_TOTAL);
     const pdvSem={};rSem.forEach(r=>{if(!pdvSem[r.pdv])pdvSem[r.pdv]={regiao:r.regiao||'Sul',vendas:0,interacoes:0,brindes:0};pdvSem[r.pdv].vendas+=(r.vendas_lata||r.vendas||0);pdvSem[r.pdv].interacoes+=(r.interacoes||0);pdvSem[r.pdv].brindes+=pptBrTot(r.brindes_turno);});
-    const pdvMes={};(Array.isArray(rMes)?rMes:[]).forEach(r=>{if(!pdvMes[r.pdv])pdvMes[r.pdv]=0;pdvMes[r.pdv]+=(r.vendas_lata||r.vendas||0);});
-    const totalVendas=Object.values(pdvSem).reduce((s,p)=>s+p.vendas,0),totalAbord=Object.values(pdvSem).reduce((s,p)=>s+p.interacoes,0),totalBrindes=Object.values(pdvSem).reduce((s,p)=>s+p.brindes,0),taxaConv=totalAbord>0?((totalVendas/totalAbord)*100).toFixed(1)+'%':'\u2014',totalMes=Object.values(pdvMes).reduce((s,v)=>s+v,0),pdvsActivos=Object.values(pdvSem).filter(p=>p.vendas>0).length;
+    const pdvTotal={};(Array.isArray(rTotal)?rTotal:[]).forEach(r=>{if(!pdvTotal[r.pdv])pdvTotal[r.pdv]=0;pdvTotal[r.pdv]+=(r.vendas_lata||r.vendas||0);});
+    const totalVendas=Object.values(pdvSem).reduce((s,p)=>s+p.vendas,0),totalAbord=Object.values(pdvSem).reduce((s,p)=>s+p.interacoes,0),totalBrindes=Object.values(pdvSem).reduce((s,p)=>s+p.brindes,0),taxaConv=totalAbord>0?((totalVendas/totalAbord)*100).toFixed(1)+'%':'\u2014',totalMes=Object.values(pdvTotal).reduce((s,v)=>s+v,0),pdvsActivos=Object.values(pdvSem).filter(p=>p.vendas>0).length;
     const brindesPorTipo={};BRINDES_TIPOS.forEach(b=>brindesPorTipo[b]=0);rSem.forEach(r=>{if(!r.brindes_turno)return;BRINDES_TIPOS.forEach(b=>{const v=r.brindes_turno[b];if(v&&typeof v==='object')brindesPorTipo[b]+=(v.oferecidos||0);else if(typeof v==='number')brindesPorTipo[b]+=v;});});
-    const pdvsOrdenados=Object.entries(pdvSem).sort((a,b)=>b[1].vendas-a[1].vendas).map(([nome,d])=>({nome,...d,metaTotal:metasMap[nome]||META_TOTAL,metaSem:Math.round((metasMap[nome]||META_TOTAL)/4),metaMes:metasMap[nome]||META_TOTAL,vendasMes:pdvMes[nome]||0}));
+    const pdvsOrdenados=Object.entries(pdvSem).sort((a,b)=>b[1].vendas-a[1].vendas).map(([nome,d])=>({nome,...d,metaTotal:metasMap[nome]||META_TOTAL,metaSem:Math.round((metasMap[nome]||META_TOTAL)/4),metaMes:metasMap[nome]||META_TOTAL,vendasMes:pdvTotal[nome]||0}));
     // Meta total = soma das metas individuais por PDV activo no período
     // Meta total = soma das metas individuais dos PDVs activos no período (da tabela metas do Supabase)
     const metaTotalSem=pdvsOrdenados.reduce((s,p)=>s+p.metaSem,0)||1;
