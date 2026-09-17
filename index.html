@@ -507,10 +507,14 @@ tr:hover td{background:var(--yellow-light)}
           Preenche os dados finais da campanha e descarrega o relatório completo em PPT.
         </p>
 
-        <!-- PERÍODO -->
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
-          <div class="field" style="margin:0"><label>Período</label><input type="text" id="rf-periodo" value="Agosto — Setembro 2026" style="min-width:220px"></div>
+        <!-- PERÍODO + CARREGAR -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;align-items:flex-end">
+          <div class="field" style="margin:0"><label>Período (texto livre)</label><input type="text" id="rf-periodo" value="Agosto — Setembro 2026" style="min-width:220px"></div>
+          <div class="field" style="margin:0"><label>Data Início</label><input type="date" id="rf-data-ini"></div>
+          <div class="field" style="margin:0"><label>Data Fim</label><input type="date" id="rf-data-fim"></div>
+          <button class="btn-primary" onclick="rfCarregarDados()" id="rf-btn-load" style="white-space:nowrap">🔄 Carregar dados da plataforma</button>
         </div>
+        <div id="rf-load-status" style="display:none;background:var(--yellow-light);border:1.5px solid var(--yellow-dark);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;line-height:1.6"></div>
 
         <!-- SECÇÃO: RESULTADOS GLOBAIS -->
         <div class="block-section">
@@ -1399,6 +1403,95 @@ const RF_PDVS=[
   {nome:'Game Maputo',turnos:20},
   {nome:'Horizon Ivato',turnos:20},
 ];
+async function rfCarregarDados(){
+  const ini=$('rf-data-ini').value;
+  const fim=$('rf-data-fim').value;
+  if(!ini||!fim){showPopup('error','Datas em falta','Define o período antes de carregar os dados.');return;}
+  const btn=$('rf-btn-load');
+  btn.disabled=true;btn.textContent='A carregar...';
+  const status=$('rf-load-status');
+  status.style.display='block';status.textContent='A carregar dados do Supabase...';
+  try{
+    // Fetch all approved reports in range
+    const[rAll,metas]=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/relatorios?status=eq.approved&data=gte.${ini}&data=lte.${fim}&order=data.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
+      fetch(`${SB_URL}/rest/v1/metas`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
+    ]);
+    if(!Array.isArray(rAll)||!rAll.length){status.textContent='⚠️ Sem relatórios aprovados neste período.';btn.disabled=false;btn.textContent='🔄 Carregar dados da plataforma';return;}
+
+    // ── Globais ──
+    const spTotal=rAll.reduce((s,r)=>s+(r.vendas_lata||r.vendas||0),0);
+    const abordagens=rAll.reduce((s,r)=>s+(r.interacoes||0),0);
+    const conv=abordagens>0?((spTotal/abordagens)*100).toFixed(1):0;
+
+    // ── Semanas (agrupar por semana ISO) ──
+    const semMap={};
+    rAll.forEach(r=>{
+      const d=new Date(r.data);const dow=d.getDay()||7;
+      const mon=new Date(d);mon.setDate(d.getDate()-dow+1);
+      const key=mon.toISOString().slice(0,10);
+      if(!semMap[key])semMap[key]=0;
+      semMap[key]+=(r.vendas_lata||r.vendas||0);
+    });
+    const semKeys=Object.keys(semMap).sort();
+    const semVals=semKeys.map(k=>semMap[k]);
+    const nSem=semKeys.length;
+
+    // ── PDVs ──
+    const pdvMap={};
+    rAll.forEach(r=>{if(!pdvMap[r.pdv])pdvMap[r.pdv]=0;pdvMap[r.pdv]+=(r.vendas_lata||r.vendas||0);});
+
+    // ── Brindes ──
+    const brMap={};BRINDES_TIPOS.forEach(b=>brMap[b]=0);
+    rAll.forEach(r=>{if(!r.brindes_turno)return;BRINDES_TIPOS.forEach(b=>{const v=r.brindes_turno[b];if(v&&typeof v==='object')brMap[b]+=(v.oferecidos||0);else if(typeof v==='number')brMap[b]+=v;});});
+
+    // ── Período texto ──
+    const fmtD=d=>{const[y,m,day]=d.split('-');const ms=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return`${parseInt(day)} ${ms[parseInt(m)-1]} ${y}`;};
+    $('rf-periodo').value=`${fmtD(ini)} — ${fmtD(fim)}`;
+
+    // ── Preencher formulário ──
+    rfInitForm();
+    $('rf-sp-total').value=spTotal;
+    $('rf-abordagens').value=abordagens;
+    $('rf-conv').value=conv;
+    $('rf-semanas').value=nSem;
+
+    // Re-render semanal inputs now that we know nSem
+    const semEl=$('rf-semanal-form');
+    if(semEl){
+      semEl.innerHTML=semVals.map((v,i)=>`<div class="field"><label>Semana ${i+1}</label><input type="number" min="0" id="rf-sem-${i+1}" value="${v}"></div>`).join('');
+      semEl.dataset.init='1';
+    }
+
+    // Melhor/pior semana
+    const maxIdx=semVals.indexOf(Math.max(...semVals));
+    const minIdx=semVals.indexOf(Math.min(...semVals));
+    if($('rf-melhor-sem'))$('rf-melhor-sem').value='Sem '+(maxIdx+1);
+    if($('rf-melhor-sp'))$('rf-melhor-sp').value=semVals[maxIdx]||0;
+    if($('rf-fraca-sem'))$('rf-fraca-sem').value='Sem '+(minIdx+1);
+    if($('rf-fraca-sp'))$('rf-fraca-sp').value=semVals[minIdx]||0;
+    if($('rf-tendencia'))$('rf-tendencia').value=semVals.length>=2?(semVals[semVals.length-1]>=semVals[semVals.length-2]?'\u2191':'\u2193'):'\u2192';
+
+    // PDVs
+    RF_PDVS.forEach(p=>{
+      const el=document.getElementById('rf-pdv-'+p.nome.replace(/[^a-zA-Z0-9]/g,''));
+      if(el)el.value=pdvMap[p.nome]||0;
+    });
+
+    // Brindes
+    BRINDES_TIPOS.forEach(b=>{
+      const el=document.getElementById('rf-br-'+slugB(b));
+      if(el)el.value=brMap[b]||0;
+    });
+
+    status.innerHTML=`✅ Dados carregados — <strong>${rAll.length} relatórios</strong> aprovados · <strong>${spTotal} SP vendidos</strong> · <strong>${abordagens} abordagens</strong> · <strong>${nSem} semanas</strong><br><span style="color:var(--muted)">Revê os campos e preenche as Observações de Campo antes de gerar.</span>`;
+    btn.disabled=false;btn.textContent='🔄 Carregar dados da plataforma';
+  }catch(e){
+    status.textContent='❌ Erro ao carregar: '+e.message;
+    btn.disabled=false;btn.textContent='🔄 Carregar dados da plataforma';
+    console.error(e);
+  }
+}
 function rfInitForm(){
   // PDV form
   const pdvEl=$('rf-pdv-form');
