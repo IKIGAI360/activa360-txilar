@@ -1396,12 +1396,12 @@ function rfSetLang(lang){
   $('rf-lang-en').style.color=lang==='en'?'var(--ink)':'var(--muted)';
 }
 const RF_PDVS=[
-  {nome:'Shoprite Matola',turnos:20},
-  {nome:'Shoprite Maputo',turnos:20},
-  {nome:'Shoprite Novare',turnos:20},
-  {nome:'Terramar Malanga',turnos:20},
-  {nome:'Game Maputo',turnos:20},
-  {nome:'Horizon Ivato',turnos:20},
+  {nome:'Shoprite Matola',turnos:20,metaTotal:0},
+  {nome:'Shoprite Maputo',turnos:20,metaTotal:0},
+  {nome:'Shoprite Novare',turnos:20,metaTotal:0},
+  {nome:'Terramar Malanga',turnos:20,metaTotal:0},
+  {nome:'Game Maputo',turnos:20,metaTotal:0},
+  {nome:'Horizon Ivato',turnos:20,metaTotal:0},
 ];
 async function rfCarregarDados(){
   const ini=$('rf-data-ini').value;
@@ -1413,10 +1413,17 @@ async function rfCarregarDados(){
   status.style.display='block';status.textContent='A carregar dados do Supabase...';
   try{
     // Fetch all approved reports in range
-    const[rAll,metas]=await Promise.all([
+    const[rAll,metasRf]=await Promise.all([
       fetch(`${SB_URL}/rest/v1/relatorios?status=eq.approved&data=gte.${ini}&data=lte.${fim}&order=data.asc`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
       fetch(`${SB_URL}/rest/v1/metas`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
     ]);
+    // Build metas map: meta total por PDV do Supabase
+    const metasRfMap={};
+    if(Array.isArray(metasRf))metasRf.forEach(m=>metasRfMap[m.pdv]=m.meta||0);
+
+    // Update RF_PDVS with real metas from Supabase
+    RF_PDVS.forEach(p=>{if(metasRfMap[p.nome])p.metaTotal=metasRfMap[p.nome];});
+
     if(!Array.isArray(rAll)||!rAll.length){status.textContent='⚠️ Sem relatórios aprovados neste período.';btn.disabled=false;btn.textContent='🔄 Carregar dados da plataforma';return;}
 
     // ── Globais ──
@@ -1484,7 +1491,7 @@ async function rfCarregarDados(){
       if(el)el.value=brMap[b]||0;
     });
 
-    status.innerHTML=`✅ Dados carregados — <strong>${rAll.length} relatórios</strong> aprovados · <strong>${spTotal} SP vendidos</strong> · <strong>${abordagens} abordagens</strong> · <strong>${nSem} semanas</strong><br><span style="color:var(--muted)">Revê os campos e preenche as Observações de Campo antes de gerar.</span>`;
+    status.innerHTML=`✅ Dados carregados — <strong>${rAll.length} relatórios</strong> aprovados · <strong>${spTotal} SP vendidos</strong> · <strong>${abordagens} abordagens</strong> · <strong>${nSem} semanas</strong><br>Metas por PDV: ${RF_PDVS.map(p=>p.nome.split(' ')[1]+': '+p.metaTotal).join(' · ')}<br><span style="color:var(--muted)">Revê os campos e preenche as Observações de Campo antes de gerar.</span>`;
     btn.disabled=false;btn.textContent='🔄 Carregar dados da plataforma';
   }catch(e){
     status.textContent='❌ Erro ao carregar: '+e.message;
@@ -1586,7 +1593,7 @@ async function rfGerar(){
   const abordagens=parseInt($('rf-abordagens').value)||0;
   const conv=parseFloat($('rf-conv').value)||0;
   const nSem=parseInt($('rf-semanas').value)||4;
-  const pdvVendas=RF_PDVS.map(p=>({nome:p.nome,turnos:p.turnos,vendas:parseInt(document.getElementById('rf-pdv-'+p.nome.replace(/[^a-zA-Z0-9]/g,''))?.value)||0}));
+  const pdvVendas=RF_PDVS.map(p=>({nome:p.nome,turnos:p.turnos,metaTotal:p.metaTotal||0,vendas:parseInt(document.getElementById('rf-pdv-'+p.nome.replace(/[^a-zA-Z0-9]/g,''))?.value)||0}));
   const semVendas=Array.from({length:nSem},(_,i)=>parseInt($('rf-sem-'+(i+1))?.value)||0);
   const brVendas=BRINDES_TIPOS.map(b=>parseInt(document.getElementById('rf-br-'+slugB(b))?.value)||0);
   const totalBrindes=brVendas.reduce((s,v)=>s+v,0);
@@ -1607,16 +1614,16 @@ async function rfGerar(){
 
   function pct(v,t){return t>0?Math.min(100,Math.round((v/t)*100)):0;}
   function T(s,txt,opts){s.addText(txt,Object.assign({fontFace:'Roboto',margin:0,isTextBox:true},opts));}
-  const pres2=new PptxGenJS();pres2.layout='LAYOUT_WIDE';
-    function footer(s){T(s,L.footer,{x:0.5,y:7.18,w:12.3,h:0.25,fontSize:8,color:M,align:'center'});}
+  const pres2_unused=null;// placeholder
+  function footer(s){T(s,L.footer,{x:0.5,y:7.18,w:12.3,h:0.25,fontSize:8,color:M,align:'center'});}
   function header(s,titulo,bgCol,txtCol){
-    s.addShape(pres2.ShapeType.rect,{x:0,y:0,w:13.3,h:1.05,fill:{color:bgCol||D},line:{type:'none'}});
+    s.addShape('rect',{x:0,y:0,w:13.3,h:1.05,fill:{color:bgCol||D},line:{type:'none'}});
     T(s,titulo,{x:0.5,y:0.22,w:9,h:0.62,fontSize:20,bold:true,color:txtCol||Y,charSpacing:3});
     T(s,periodo,{x:9.5,y:0.3,w:3.5,h:0.45,fontSize:11,color:txtCol||W,align:'right'});
   }
 
   try{
-    // pres2 declared above
+    const pres2=new PptxGenJS();pres2.layout='LAYOUT_WIDE';
 
     // S1 CAPA
     const s1=pres2.addSlide();
@@ -1662,22 +1669,22 @@ async function rfGerar(){
     s3.addShape(pres2.ShapeType.rect,{x:0.4,y:1.15,w:12.5,h:0.38,fill:{color:D},line:{type:'none'}});
     hdrs.forEach((h,i)=>T(s3,h,{x:cols[i]+0.1,y:1.18,w:colW[i]-0.1,h:0.32,fontSize:8,bold:true,color:W,charSpacing:1}));
     pdvVendas.forEach((p,i)=>{
-      const ry=1.58+i*0.82;const pp3=pct(p.vendas,100);const bc=pp3>=100?Y:pp3>=60?'FFC600':R;
+      const ry=1.58+i*0.82;const pp3=pct(p.vendas,p.metaTotal||100);const bc=pp3>=100?Y:pp3>=60?'FFC600':R;
       if(i%2===0)s3.addShape(pres2.ShapeType.rect,{x:0.4,y:ry,w:12.5,h:0.78,fill:{color:'F0F0F0'},line:{type:'none'}});
       T(s3,p.nome,{x:cols[0]+0.1,y:ry+0.16,w:colW[0]-0.1,h:0.42,fontSize:11,bold:true,color:D});
       T(s3,'Sul',{x:cols[1]+0.05,y:ry+0.16,w:colW[1],h:0.42,fontSize:10,color:M});
       T(s3,p.turnos+'',{x:cols[2]+0.05,y:ry+0.16,w:colW[2],h:0.42,fontSize:11,color:D,align:'center'});
-      T(s3,L.meta100,{x:cols[3]+0.05,y:ry+0.16,w:colW[3],h:0.42,fontSize:11,color:M,align:'center'});
+      T(s3,(p.metaTotal||0)+' SP',{x:cols[3]+0.05,y:ry+0.16,w:colW[3],h:0.42,fontSize:11,color:M,align:'center'});
       T(s3,(p.vendas||'[X]')+'',{x:cols[4]+0.05,y:ry+0.16,w:colW[4],h:0.42,fontSize:13,bold:true,color:R,align:'center'});
       s3.addShape(pres2.ShapeType.rect,{x:cols[5]+0.1,y:ry+0.28,w:3.6,h:0.2,fill:{color:'DDDDDD'},line:{type:'none'}});
       if(p.vendas>0)s3.addShape(pres2.ShapeType.rect,{x:cols[5]+0.1,y:ry+0.28,w:Math.max(0.05,3.6*pp3/100),h:0.2,fill:{color:bc},line:{type:'none'}});
-      T(s3,p.vendas>0?pp3+'%':'[X]%',{x:cols[5]+3.75,y:ry+0.22,w:0.55,h:0.3,fontSize:9,bold:true,color:M});
+      T(s3,(p.vendas>0||p.metaTotal>0)?pp3+'%':'[X]%',{x:cols[5]+3.75,y:ry+0.22,w:0.55,h:0.3,fontSize:9,bold:true,color:M});
     });
     const ty=1.58+pdvVendas.length*0.82;
     s3.addShape(pres2.ShapeType.rect,{x:0.4,y:ty,w:12.5,h:0.42,fill:{color:D},line:{type:'none'}});
     T(s3,L.total,{x:cols[0]+0.1,y:ty+0.1,w:3.0,h:0.3,fontSize:10,bold:true,color:W});
     T(s3,'120',{x:cols[2]+0.05,y:ty+0.1,w:colW[2],h:0.3,fontSize:10,bold:true,color:W,align:'center'});
-    T(s3,'600 SP',{x:cols[3]+0.05,y:ty+0.1,w:colW[3],h:0.3,fontSize:10,bold:true,color:Y,align:'center'});
+    T(s3,RF_PDVS.reduce((s,p)=>s+(p.metaTotal||0),0)+' SP',{x:cols[3]+0.05,y:ty+0.1,w:colW[3],h:0.3,fontSize:10,bold:true,color:Y,align:'center'});
     T(s3,(spTotal||'[X]')+'',{x:cols[4]+0.05,y:ty+0.1,w:colW[4],h:0.3,fontSize:12,bold:true,color:Y,align:'center'});
     footer(s3);
 
