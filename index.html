@@ -1607,7 +1607,8 @@ async function rfGerar(){
 
   function pct(v,t){return t>0?Math.min(100,Math.round((v/t)*100)):0;}
   function T(s,txt,opts){s.addText(txt,Object.assign({fontFace:'Roboto',margin:0,isTextBox:true},opts));}
-  function footer(s){T(s,L.footer,{x:0.5,y:7.18,w:12.3,h:0.25,fontSize:8,color:M,align:'center'});}
+  const pres2=new PptxGenJS();pres2.layout='LAYOUT_WIDE';
+    function footer(s){T(s,L.footer,{x:0.5,y:7.18,w:12.3,h:0.25,fontSize:8,color:M,align:'center'});}
   function header(s,titulo,bgCol,txtCol){
     s.addShape(pres2.ShapeType.rect,{x:0,y:0,w:13.3,h:1.05,fill:{color:bgCol||D},line:{type:'none'}});
     T(s,titulo,{x:0.5,y:0.22,w:9,h:0.62,fontSize:20,bold:true,color:txtCol||Y,charSpacing:3});
@@ -1615,7 +1616,7 @@ async function rfGerar(){
   }
 
   try{
-    const pres2=new PptxGenJS();pres2.layout='LAYOUT_WIDE';
+    // pres2 declared above
 
     // S1 CAPA
     const s1=pres2.addSlide();
